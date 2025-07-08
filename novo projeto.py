@@ -124,5 +124,4 @@ def analyze_general_patterns(history):
     if last_color in transitions and transitions[last_color]:
         most_likely_next_transition, count_transition = transitions[last_color].most_common(1)[0]
         total_transitions = sum(transitions[last_color].values())
-        confidence = round((count_transition / total_transitions) * 100)
-        suggestions.append({
+        confidence = round((count_transition / total_transitions)
