@@ -1,22 +1,21 @@
 import streamlit as st
 
-# ---------- Configuração da Página ----------
-st.set_page_config(page_title="Análise de Padrões - Football Studio", layout="wide")
+# Configuração da página
+st.set_page_config(page_title="Análise Football Studio", layout="wide")
 
-# ---------- Cores ----------
+# Mapeamento de cores
 COLOR_MAP = {
-    "🔵": "#3498db",
-    "🔴": "#e74c3c",
-    "🟡": "#f1c40f",
+    "🔵": "#3498db",  # Azul
+    "🔴": "#e74c3c",  # Vermelho
+    "🟡": "#f1c40f",  # Amarelo
 }
 
-# ---------- Estado Inicial ----------
+# Histórico salvo na sessão
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# ---------- Entrada de Resultados ----------
-st.title("📊 Histórico em Colunas de 9")
-
+# Entrada dos resultados
+st.title("📌 Histórico (Mais Recente Primeiro)")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🔵 Azul"):
@@ -28,57 +27,49 @@ with col3:
     if st.button("🟡 Empate"):
         st.session_state.history.insert(0, "🟡")
 
-# ---------- Função para separar em colunas de 9 ----------
-def split_columns(data, size=9):
-    return [data[i:i+size] for i in range(0, len(data), size)]
+# Função: Quebra o histórico em colunas de 9 (da esquerda pra direita)
+def dividir_em_colunas_lado_a_lado(lista, altura=9):
+    colunas = [[] for _ in range((len(lista) + altura - 1) // altura)]
+    for i, valor in enumerate(lista):
+        colunas[i // altura].append(valor)
+    return colunas
 
-# ---------- Mostrar histórico em colunas ----------
-columns = split_columns(st.session_state.history)
+# Montar colunas
+colunas = dividir_em_colunas_lado_a_lado(st.session_state.history)
 
-st.subheader("📌 Histórico (Mais Recente Primeiro)")
-if columns:
-    layout = st.columns(len(columns))
-    for idx, col_data in enumerate(columns):
-        with layout[idx]:
-            for item in col_data:
+# Exibir histórico em colunas de bolinhas
+st.subheader("🎯 Histórico em Colunas de 9")
+if colunas:
+    layout = st.columns(len(colunas))
+    for i, coluna in enumerate(colunas):
+        with layout[i]:
+            st.markdown(f"**Coluna {i+1}**")
+            for item in coluna:
                 st.markdown(
-                    f"<div style='text-align:center;font-size:36px;margin-bottom:4px;'>{item}</div>",
+                    f"<div style='text-align:center;font-size:40px;'>{item}</div>",
                     unsafe_allow_html=True
                 )
 else:
-    st.info("Adicione resultados para começar.")
+    st.info("Nenhum resultado ainda.")
 
-# ---------- Análise da 4ª Coluna vs 1ª Coluna ----------
-def analisar_padroes(columns):
-    if len(columns) < 4:
-        return "🔍 Aguardando pelo menos 4 colunas para análise..."
-
-    ref_col = columns[0]      # Nova coluna (mais recente)
-    col_antiga = columns[3]   # Quarta coluna visível (mais antiga)
-
-    comparacoes = []
-    for i in range(min(len(ref_col), len(col_antiga))):
-        comparacoes.append({
-            "Índice": i + 1,
-            "4ª Coluna": col_antiga[i],
-            "1ª Coluna": ref_col[i],
-            "✔️ Igual": "✅" if col_antiga[i] == ref_col[i] else "❌"
+# Análise: Reescrita da 4ª Coluna na Nova
+st.subheader("🔍 Análise: Reescrita da 4ª Coluna na Nova")
+if len(colunas) >= 4:
+    primeira = colunas[0]
+    quarta = colunas[3]
+    analise = []
+    for i in range(min(len(primeira), len(quarta))):
+        analise.append({
+            "Índice": i+1,
+            "4ª Coluna": quarta[i],
+            "1ª Coluna": primeira[i],
+            "Resultado": "✅" if quarta[i] == primeira[i] else "❌"
         })
-
-    return comparacoes
-
-# ---------- Exibir Análise ----------
-st.subheader("🔎 Análise: Reescrita da 4ª Coluna na Nova")
-
-resultado = analisar_padroes(columns)
-
-if isinstance(resultado, str):
-    st.info(resultado)
+    st.table(analise)
 else:
-    st.table(resultado)
+    st.info("🔄 Aguardando pelo menos 4 colunas para comparar...")
 
-# ---------- Botão de Limpar ----------
-st.markdown("---")
-if st.button("🗑️ Limpar Histórico"):
+# Botão de reset
+if st.button("🧹 Limpar Histórico"):
     st.session_state.history = []
     st.experimental_rerun()
