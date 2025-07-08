@@ -6,7 +6,6 @@ st.set_page_config(page_title="Análise Football Studio", layout="wide")
 # Histórico salvo na sessão
 if "history" not in st.session_state:
     st.session_state.history = []
-    st.session_state.rows = []
 
 # Entrada dos resultados
 st.title("📌 Histórico de Resultados")
@@ -14,37 +13,29 @@ col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🔵 Azul"):
         st.session_state.history.insert(0, "🔵")
-        st.session_state.rows = []  # Forçar recálculo das linhas
 with col2:
     if st.button("🔴 Vermelho"):
         st.session_state.history.insert(0, "🔴")
-        st.session_state.rows = []
 with col3:
     if st.button("🟡 Empate"):
         st.session_state.history.insert(0, "🟡")
-        st.session_state.rows = []
 
-# Atualizar linhas sempre que o histórico mudar
-if not st.session_state.rows and st.session_state.history:
-    # Criar linhas completas de 9 resultados
-    temp_history = st.session_state.history.copy()
-    st.session_state.rows = []
-    
-    while temp_history:
-        # Pegar os próximos 9 resultados (mais recentes primeiro)
-        row = temp_history[:9]
-        # Completar a linha se necessário
-        if len(row) < 9:
-            row += ["-"] * (9 - len(row))
-        st.session_state.rows.insert(0, row)  # Inserir no início para manter ordem
-        temp_history = temp_history[9:]
+# Gerar linhas de 9 resultados
+rows = []
+temp = st.session_state.history.copy()
+while temp:
+    row = temp[:9]
+    if len(row) < 9:
+        row += ["-"] * (9 - len(row))
+    rows.append(row)
+    temp = temp[9:]
 
 # Exibir histórico em linhas de 9 resultados
-st.subheader("🎯 Histórico em Linhas de 9 (Mais Recente no Topo)")
-if st.session_state.rows:
-    # Exibir linhas em ordem reversa (mais recente primeiro)
-    for idx, row in enumerate(reversed(st.session_state.rows)):
-        st.markdown(f"**Linha {idx+1}**")
+st.subheader("🎯 Histórico em Linhas de 9 (Mais Recente na Esquerda)")
+if rows:
+    # Exibir do mais recente para o mais antigo (linha 1 = mais recente)
+    for idx, row in enumerate(rows, 1):
+        st.markdown(f"**Linha {idx}**")
         cols = st.columns(9)
         for i, result in enumerate(row):
             with cols[i]:
@@ -63,10 +54,10 @@ else:
 
 # Análise: Comparação com a 4ª linha anterior
 st.subheader("🔍 Análise: Comparação com a 4ª Linha Anterior")
-if len(st.session_state.rows) >= 4:
-    # Obter as linhas necessárias
-    linha_atual = st.session_state.rows[-1]  # Linha mais recente
-    linha_4_anterior = st.session_state.rows[-4]  # 4ª linha anterior
+if len(rows) >= 4:
+    # Linhas: [0] = mais recente, [3] = 4ª linha anterior
+    linha_atual = rows[0]
+    linha_4_anterior = rows[3]
     
     analise = []
     for pos in range(9):
@@ -83,5 +74,4 @@ else:
 # Botão de reset
 if st.button("🧹 Limpar Histórico"):
     st.session_state.history = []
-    st.session_state.rows = []
     st.experimental_rerun()
