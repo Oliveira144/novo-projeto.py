@@ -3,19 +3,13 @@ import streamlit as st
 # Configuração da página
 st.set_page_config(page_title="Análise Football Studio", layout="wide")
 
-# Mapeamento de cores
-COLOR_MAP = {
-    "🔵": "#3498db",  # Azul
-    "🔴": "#e74c3c",  # Vermelho
-    "🟡": "#f1c40f",  # Amarelo
-}
-
 # Histórico salvo na sessão
 if "history" not in st.session_state:
     st.session_state.history = []
+    st.session_state.rows = []
 
 # Entrada dos resultados
-st.title("📌 Histórico (Mais Recente Primeiro)")
+st.title("📌 Histórico de Resultados (Mais Recente à Esquerda)")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🔵 Azul"):
@@ -27,54 +21,60 @@ with col3:
     if st.button("🟡 Empate"):
         st.session_state.history.insert(0, "🟡")
 
-# Função: Divide o histórico em linhas completas de 9 elementos
-def dividir_em_linhas(lista, elementos_por_linha=9):
-    linhas = []
-    for i in range(0, len(lista), elementos_por_linha):
-        linha = lista[i:i+elementos_por_linha]
-        # Completa a linha com None se necessário
-        while len(linha) < elementos_por_linha:
-            linha.append(None)
-        linhas.append(linha)
-    return linhas
-
-# Montar linhas
-linhas = dividir_em_linhas(st.session_state.history)
-
-# Exibir histórico em linhas de bolinhas
-st.subheader("🎯 Histórico em Linhas de 9")
+# Atualizar linhas sempre que o histórico mudar
 if st.session_state.history:
-    for linha in linhas:
+    st.session_state.rows = []
+    current_row = []
+    
+    for i, result in enumerate(st.session_state.history):
+        current_row.insert(0, result)  # Inverte a ordem na linha
+        
+        if (i + 1) % 9 == 0:
+            st.session_state.rows.insert(0, current_row)
+            current_row = []
+    
+    # Adiciona a linha atual se não estiver vazia
+    if current_row:
+        # Preenche com espaços vazios se necessário
+        while len(current_row) < 9:
+            current_row.insert(0, "-")
+        st.session_state.rows.insert(0, current_row)
+
+# Exibir histórico em linhas de 9 resultados
+st.subheader("🎯 Histórico em Linhas de 9 (Mais Recente à Esquerda)")
+if st.session_state.rows:
+    for row_idx, row in enumerate(st.session_state.rows):
+        st.markdown(f"**Linha {len(st.session_state.rows) - row_idx}**")
         cols = st.columns(9)
-        for i, resultado in enumerate(linha):
+        for i, result in enumerate(row):
             with cols[i]:
-                if resultado:
+                if result != "-":
                     st.markdown(
-                        f"<div style='text-align:center;font-size:40px;'>{resultado}</div>",
+                        f"<div style='text-align:center;font-size:40px;'>{result}</div>",
                         unsafe_allow_html=True
                     )
                 else:
                     st.markdown(
-                        "<div style='text-align:center;font-size:40px;'>-</div>",
+                        "<div style='text-align:center;font-size:40px;color:#cccccc;'>-</div>",
                         unsafe_allow_html=True
                     )
 else:
-    st.info("Nenhum resultado ainda.")
+    st.info("Nenhum resultado ainda. Adicione os primeiros resultados.")
 
-# Análise: Reescrita da 4ª Linha na Nova
-st.subheader("🔍 Análise: Reescrita da 4ª Linha na Nova")
-if len(linhas) >= 4:
-    primeira_linha = linhas[0]
-    quarta_linha = linhas[3]
+# Análise: Comparação com a 4ª linha anterior
+st.subheader("🔍 Análise: Comparação com a 4ª Linha Anterior")
+if len(st.session_state.rows) >= 4:
+    linha_atual = st.session_state.rows[0]
+    linha_4_anterior = st.session_state.rows[3]
+    
     analise = []
-    for i in range(9):  # Compara os 9 elementos de cada linha
-        if primeira_linha[i] and quarta_linha[i]:
-            analise.append({
-                "Posição": i+1,
-                "4ª Linha": quarta_linha[i],
-                "1ª Linha": primeira_linha[i],
-                "Resultado": "✅" if quarta_linha[i] == primeira_linha[i] else "❌"
-            })
+    for pos in range(9):
+        analise.append({
+            "Posição": pos + 1,
+            "Linha Atual": linha_atual[pos],
+            "4ª Linha Anterior": linha_4_anterior[pos],
+            "Resultado": "✅" if linha_atual[pos] == linha_4_anterior[pos] else "❌"
+        })
     st.table(analise)
 else:
     st.info("🔄 Aguardando pelo menos 4 linhas completas para comparar...")
@@ -82,4 +82,5 @@ else:
 # Botão de reset
 if st.button("🧹 Limpar Histórico"):
     st.session_state.history = []
+    st.session_state.rows = []
     st.experimental_rerun()
