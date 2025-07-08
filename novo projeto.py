@@ -23,28 +23,29 @@ with col3:
 # Exibir histórico em linha horizontal contínua
 st.subheader("🎯 Histórico (Mais Recente na Esquerda)")
 if st.session_state.history:
-    # Calcular número de linhas necessárias
-    num_linhas = (len(st.session_state.history) // 9 + (1 if len(st.session_state.history) % 9 > 0 else 0)
+    # Calcular número de linhas necessárias (correção do parêntese)
+    num_linhas = (len(st.session_state.history) // 9) + (1 if len(st.session_state.history) % 9 > 0 else 0)
     
     # Exibir cada linha de 9 resultados
     for linha in range(num_linhas):
         # Criar uma linha com 9 colunas
         cols = st.columns(9)
         
-        # Calcular índice inicial e final para esta linha
+        # Calcular índice inicial para esta linha
         start_idx = linha * 9
-        end_idx = start_idx + 9
         
         # Preencher cada coluna na linha atual
-        for pos in range(9):
-            idx = start_idx + pos
-            with cols[pos]:
+        for coluna in range(9):
+            idx = start_idx + coluna
+            with cols[coluna]:
                 if idx < len(st.session_state.history):
+                    # Resultado real
                     st.markdown(
                         f"<div style='text-align:center;font-size:40px;'>{st.session_state.history[idx]}</div>",
                         unsafe_allow_html=True
                     )
                 else:
+                    # Espaço vazio
                     st.markdown(
                         "<div style='text-align:center;font-size:40px;color:#cccccc;'>-</div>",
                         unsafe_allow_html=True
