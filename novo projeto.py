@@ -3,29 +3,30 @@ from typing import List
 from collections import Counter
 
 st.set_page_config(layout="wide")
-st.title("🔁 Column Rewriting Analysis - Football Studio")
+st.title("🔁 Analisador de Reescrita de Colunas - Football Studio")
 
-# Emoji to color mapping
+# Mapeamento de cores
 COLOR_MAP = {
     "🔴": "red",
     "🔵": "blue",
     "🟡": "gold"
 }
 
-# --- INPUT ---
-st.markdown("### 📥 Enter Game Results (latest first)")
+# Entrada de histórico
+st.markdown("### 📥 Digite os resultados (mais recente primeiro)")
 history_input = st.text_area(
-    "Paste results separated by space:",
+    "Cole os emojis separados por espaço (mínimo 36):",
     placeholder="🔴 🔵 🟡 🔴 🔵 🔵 🔴...",
     height=120
 )
 
+# Processamento do histórico
 results = history_input.strip().split()
 if len(results) < 36:
-    st.info("Please enter at least 36 results to form 6 rows of 9.")
+    st.info("Digite pelo menos 36 resultados para formar 6 linhas de 9.")
     st.stop()
 
-# --- BUILD ROWS OF 9 ---
+# Função para dividir em linhas de 9
 def build_rows(data):
     rows = []
     for i in range(0, len(data), 9):
@@ -34,11 +35,12 @@ def build_rows(data):
 
 rows = build_rows(results)
 
-# --- SPLIT CURRENT AND OLD ---
+# Separar em atual (acima) e antigo (abaixo)
 current_rows = rows[:3]
 old_rows = rows[3:6]
 
-st.markdown("### 🧱 Current History (left) vs Old History (right)")
+# Mostrar linhas lado a lado
+st.markdown("### 🧱 Histórico Atual (esquerda) vs Histórico Antigo (direita)")
 for i in range(3):
     col1, col2 = st.columns(2)
     with col1:
@@ -56,7 +58,7 @@ for i in range(3):
                 "</div>", unsafe_allow_html=True
             )
 
-# --- EXTRACT COLUMNS ---
+# Função para extrair colunas de linhas
 def extract_columns(rows: List[List[str]]) -> List[List[str]]:
     columns = [[] for _ in range(9)]
     for row in rows:
@@ -64,7 +66,7 @@ def extract_columns(rows: List[List[str]]) -> List[List[str]]:
             columns[idx].append(val)
     return columns
 
-# --- NORMALIZE STRUCTURE (Ex: 🔴🔵🟡 → 123 or 🔵🔴🔵 → 121) ---
+# Função para normalizar padrão (ex: 🔴🔵🟡 → 123 ou 🔵🔴🔵 → 121)
 def normalize_pattern(col: List[str]) -> str:
     mapping = {}
     result = []
@@ -76,8 +78,8 @@ def normalize_pattern(col: List[str]) -> str:
         result.append(mapping[color])
     return "".join(result)
 
-# --- ANALYZE COLUMNS ---
-st.markdown("### 🔍 Compare Column 1 (new) vs Column 4 (old)")
+# Análise das colunas
+st.markdown("### 🔍 Comparar Coluna 1 (nova) com Coluna 4 (anterior)")
 
 if len(rows) >= 4:
     all_columns = extract_columns(rows)
@@ -92,37 +94,44 @@ if len(rows) >= 4:
         a = col1[i]
         b = col4[i]
         if a == b:
-            result = "✅ Exact"
+            result = "✅ Exata"
             exact_matches += 1
         elif normalize_pattern([a]) == normalize_pattern([b]):
-            result = "🔁 Structure"
+            result = "🔁 Estrutura"
             structure_matches += 1
         else:
             result = "❌"
         comparison.append({
-            "Row": i + 1,
-            "Column 1": a,
-            "Column 4": b,
-            "Match": result
+            "Linha": i + 1,
+            "Coluna 1": a,
+            "Coluna 4": b,
+            "Resultado": result
         })
 
-    st.markdown(f"**Exact Matches:** {exact_matches}/3  ")
-    st.markdown(f"**Structural Matches:** {structure_matches}/3")
+    st.markdown(f"**Correspondências Exatas:** {exact_matches}/3  ")
+    st.markdown(f"**Correspondências Estruturais:** {structure_matches}/3")
     st.table(comparison)
 else:
-    st.warning("You need at least 4 lines of 9 for column analysis.")
+    st.warning("É necessário pelo menos 4 linhas para a análise de coluna.")
 
-# --- SUGGESTION ---
-st.markdown("### 🤖 Intelligent Suggestion")
+# Sugestão Inteligente
+st.markdown("### 🤖 Sugestão Inteligente")
 
 if exact_matches >= 2:
-    st.success("🧠 Column 1 appears to exactly repeat Column 4.")
-    st.markdown("📌 Suggestion: Continue following Column 4's structure for predictions.")
+    st.success("🧠 A Coluna 1 está repetindo a Coluna 4 exatamente.")
+    st.markdown("📌 Sugestão: Siga a estrutura da Coluna 4 para a próxima jogada.")
 elif structure_matches >= 2:
-    st.info("🔄 Column 1 structurally repeats Column 4 with different colors.")
-    st.markdown("📌 Suggestion: Consider pattern continuity despite color swaps.")
+    st.info("🔄 A Coluna 1 está reescrevendo a Coluna 4 com outras cores.")
+    st.markdown("📌 Sugestão: O padrão estrutural se mantém, considere continuidade com troca de paleta.")
 else:
-    st.warning("Not enough repetition yet. Wait for more data.")
+    st.warning("Nenhuma semelhança significativa detectada. Aguarde mais resultados.")
 
-# --- STYLES ---
-st.markdown(\"\"\"\n<style>\n    .stTextArea textarea {\n        font-size: 20px;\n        line-height: 1.5;\n    }\n</style>\n\"\"\", unsafe_allow_html=True)
+# Estilo extra para textarea
+st.markdown("""
+<style>
+    .stTextArea textarea {
+        font-size: 20px;
+        line-height: 1.5;
+    }
+</style>
+""", unsafe_allow_html=True)
