@@ -1,105 +1,85 @@
 import streamlit as st
-import json
-import os
 
-# CONFIG
-HISTORY_FILE = 'history.json'
-COLUMN_SIZE = 9
+# ---------- Configurações ----------
+st.set_page_config(page_title="Análise Inteligente - Football Studio", layout="wide")
 
+# ---------- Mapa de Cores ----------
 COLOR_MAP = {
-    'R': {'name': 'Casa', 'color': '#EF4444', 'text': 'white'},
-    'B': {'name': 'Visitante', 'color': '#3B82F6', 'text': 'white'},
-    'Y': {'name': 'Empate', 'color': '#FACC15', 'text': 'black'}
+    "🔵": {"color": "#3498db", "text": "#fff"},
+    "🔴": {"color": "#e74c3c", "text": "#fff"},
+    "🟡": {"color": "#f1c40f", "text": "#000"},
 }
 
-# Funções de histórico
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, 'r') as f:
-            return json.load(f)
-    return []
+# ---------- Inicialização ----------
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-def save_history(data):
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(data, f)
+# ---------- Entrada manual ----------
+st.title("📊 Histórico em Colunas de 9")
 
-def split_columns(data):
-    return [data[i:i+COLUMN_SIZE] for i in range(0, len(data), COLUMN_SIZE)]
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🔵 Azul"):
+        st.session_state.history.insert(0, "🔵")
+with col2:
+    if st.button("🔴 Vermelho"):
+        st.session_state.history.insert(0, "🔴")
+with col3:
+    if st.button("🟡 Empate"):
+        st.session_state.history.insert(0, "🟡")
 
-def structurally_equal(col1, col2):
-    if len(col1) != len(col2):
-        return False
-    pattern = {}
-    for a, b in zip(col1, col2):
-        if a in pattern:
-            if pattern[a] != b:
-                return False
-        else:
-            if b in pattern.values():
-                return False
-            pattern[a] = b
-    return True
+# ---------- Função para dividir em colunas de 9 ----------
+def split_columns(data, size=9):
+    return [data[i:i+size] for i in range(0, len(data), size)]
 
-# Início da interface
-st.set_page_config("Football Studio - Análise Padrões", layout="centered")
-st.title("🎯 Análise de Padrões Estruturais (Football Studio)")
-st.caption("Análise baseada em colunas de 9 com reescrita por estrutura")
-
-if 'history' not in st.session_state:
-    st.session_state.history = load_history()
-
-# Botões de entrada
-c1, c2, c3 = st.columns(3)
-if c1.button("🔴 Casa"):
-    st.session_state.history.append("R")
-elif c2.button("🔵 Visitante"):
-    st.session_state.history.append("B")
-elif c3.button("🟡 Empate"):
-    st.session_state.history.append("Y")
-
-save_history(st.session_state.history)
-
-# Mostrar colunas
+# ---------- Exibir Histórico ----------
 columns = split_columns(st.session_state.history)
-st.subheader("📊 Histórico em Colunas de 9")
-col_layout = st.columns(len(columns))
-for i, col_data in enumerate(columns):
-    with col_layout[i]:
-        st.markdown(f"**Col {i+1}**")
-        for val in col_data:
-            info = COLOR_MAP[val]
-            st.markdown(
-                f"<div style='background-color:{info['color']};color:{info['text']};text-align:center;padding:6px;border-radius:6px;margin:2px;font-weight:bold'>{val}</div>",
-                unsafe_allow_html=True
-            )
 
-# Análise de repetição estrutural
-st.markdown("---")
-st.subheader("🤖 Sugestão Inteligente")
-
-if len(columns) >= 4:
-    nova = columns[-1]
-    for i in range(len(columns)-1):
-        antiga = columns[i]
-        if structurally_equal(antiga, nova):
-            st.success(f"🧠 Repetição detectada com Coluna {i+1} (estrutura compatível)")
-            if i+1 < len(columns):
-                prox_col = columns[i+1]
-                if len(prox_col) > 0:
-                    prox_val = prox_col[0]
-                    cor = COLOR_MAP[prox_val]
-                    st.markdown(
-                        f"<div style='background-color:{cor['color']};color:{cor['text']};text-align:center;padding:10px;border-radius:6px;font-weight:bold'>🎯 Sugestão: {prox_val} ({cor['name']})</div>",
-                        unsafe_allow_html=True
-                    )
-                    break
-    else:
-        st.info("Nenhuma repetição estrutural detectada ainda.")
+st.subheader("📌 Histórico (Mais Recente Primeiro)")
+if len(columns) > 0:
+    col_layout = st.columns(len(columns))
+    for i, col_data in enumerate(columns):
+        with col_layout[i]:
+            st.markdown(f"**Col {i+1}**")
+            for val in col_data:
+                info = COLOR_MAP[val]
+                st.markdown(
+                    f"<div style='background-color:{info['color']};color:{info['text']};text-align:center;padding:6px;border-radius:6px;margin:2px;font-weight:bold'>{val}</div>",
+                    unsafe_allow_html=True
+                )
 else:
-    st.warning("É necessário ao menos 4 colunas para análise.")
+    st.info("Ainda sem dados. Comece inserindo resultados.")
 
-# Limpar
+# ---------- Lógica de Análise ----------
+def analisar_padroes(columns):
+    if len(columns) < 4:
+        return "🔍 Aguardando pelo menos 4 colunas para análise..."
+
+    ref_col = columns[0]  # Primeira (mais recente)
+    padrao_col = columns[3]  # Quarta coluna mais antiga visível
+
+    comparacoes = []
+    for i in range(min(len(ref_col), len(padrao_col))):
+        match = (ref_col[i] == padrao_col[i])
+        comparacoes.append((i+1, padrao_col[i], ref_col[i], match))
+
+    return comparacoes
+
+# ---------- Exibir Análise ----------
+st.subheader("🔎 Análise: Reescrita da 4ª Coluna na Nova")
+resultado = analisar_padroes(columns)
+
+if isinstance(resultado, str):
+    st.info(resultado)
+else:
+    st.markdown("Se a **primeira coluna** estiver repetindo o padrão da **quarta coluna**, com ou sem cores iguais, você verá abaixo:")
+    st.table([
+        {"Índice": i, "4ª Coluna": ant, "1ª Coluna": nova, "✔️ Igual": "✅" if ok else "❌"}
+        for i, ant, nova, ok in resultado
+    ])
+
+# ---------- Botão de Reset ----------
+st.markdown("---")
 if st.button("🗑️ Limpar Histórico"):
     st.session_state.history = []
-    save_history([])
-    st.rerun()
+    st.experimental_rerun()
