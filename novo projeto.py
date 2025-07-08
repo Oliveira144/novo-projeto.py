@@ -1,137 +1,82 @@
 import streamlit as st
-from typing import List
-from collections import Counter
+import pandas as pd
 
-st.set_page_config(layout="wide")
-st.title("🔁 Analisador de Reescrita de Colunas - Football Studio")
+# Função para carregar histórico
+def load_history():
+    return []
 
-# Mapeamento de cores
-COLOR_MAP = {
-    "🔴": "red",
-    "🔵": "blue",
-    "🟡": "gold"
-}
+# Função para salvar histórico
+def save_history(history):
+    return history
 
-# Entrada de histórico
-st.markdown("### 📥 Digite os resultados (mais recente primeiro)")
-history_input = st.text_area(
-    "Cole os emojis separados por espaço (mínimo 36):",
-    placeholder="🔴 🔵 🟡 🔴 🔵 🔵 🔴...",
-    height=120
-)
+# Função para analisar padrões
+def analyze_patterns(history):
+    patterns = []
+    vermelho = 0
+    azul = 0
+    amarelo = 0
+    for i in history:
+        if i == "R":
+            vermelho += 1
+        elif i == "B":
+            azul += 1
+        elif i == "Y":
+            amarelo += 1
+    return vermelho, azul, amarelo
 
-# Processamento do histórico
-results = history_input.strip().split()
-if len(results) < 36:
-    st.info("Digite pelo menos 36 resultados para formar 6 linhas de 9.")
-    st.stop()
-
-# Função para dividir em linhas de 9
-def build_rows(data):
-    rows = []
-    for i in range(0, len(data), 9):
-        rows.append(data[i:i+9])
-    return rows[:6]
-
-rows = build_rows(results)
-
-# Separar em atual (acima) e antigo (abaixo)
-current_rows = rows[:3]
-old_rows = rows[3:6]
-
-# Mostrar linhas lado a lado
-st.markdown("### 🧱 Histórico Atual (esquerda) vs Histórico Antigo (direita)")
-for i in range(3):
-    col1, col2 = st.columns(2)
-    with col1:
-        if i < len(current_rows):
-            st.markdown(
-                "<div style='font-size:28px; text-align:center;'>" +
-                " ".join(current_rows[i]) +
-                "</div>", unsafe_allow_html=True
-            )
-    with col2:
-        if i < len(old_rows):
-            st.markdown(
-                "<div style='font-size:28px; text-align:center;'>" +
-                " ".join(old_rows[i]) +
-                "</div>", unsafe_allow_html=True
-            )
-
-# Função para extrair colunas de linhas
-def extract_columns(rows: List[List[str]]) -> List[List[str]]:
-    columns = [[] for _ in range(9)]
-    for row in rows:
-        for idx, val in enumerate(row):
-            columns[idx].append(val)
-    return columns
-
-# Função para normalizar padrão (ex: 🔴🔵🟡 → 123 ou 🔵🔴🔵 → 121)
-def normalize_pattern(col: List[str]) -> str:
-    mapping = {}
-    result = []
-    code = 1
-    for color in col:
-        if color not in mapping:
-            mapping[color] = str(code)
-            code += 1
-        result.append(mapping[color])
-    return "".join(result)
-
-# Análise das colunas
-st.markdown("### 🔍 Comparar Coluna 1 (nova) com Coluna 4 (anterior)")
-
-if len(rows) >= 4:
-    all_columns = extract_columns(rows)
-    col1 = all_columns[0]
-    col4 = all_columns[3]
-
-    exact_matches = 0
-    structure_matches = 0
-    comparison = []
-
-    for i in range(3):
-        a = col1[i]
-        b = col4[i]
-        if a == b:
-            result = "✅ Exata"
-            exact_matches += 1
-        elif normalize_pattern([a]) == normalize_pattern([b]):
-            result = "🔁 Estrutura"
-            structure_matches += 1
+# Função para prever próximo resultado
+def predict_next_result(history):
+    vermelho, azul, amarelo = analyze_patterns(history)
+    if vermelho > azul and vermelho > amarelo:
+        return "B"
+    elif azul > vermelho and azul > amarelo:
+        return "R"
+    elif amarelo > vermelho and amarelo > azul:
+        return "R"
+    else:
+        if history[-1] == "R":
+            return "B"
+        elif history[-1] == "B":
+            return "R"
         else:
-            result = "❌"
-        comparison.append({
-            "Linha": i + 1,
-            "Coluna 1": a,
-            "Coluna 4": b,
-            "Resultado": result
-        })
+            return "R"
 
-    st.markdown(f"**Correspondências Exatas:** {exact_matches}/3  ")
-    st.markdown(f"**Correspondências Estruturais:** {structure_matches}/3")
-    st.table(comparison)
-else:
-    st.warning("É necessário pelo menos 4 linhas para a análise de coluna.")
+# Interface
+st.title("Football Studio - Análise de Padrões")
+history = load_history()
 
-# Sugestão Inteligente
-st.markdown("### 🤖 Sugestão Inteligente")
+# Entrada de resultados
+st.header("Entrada de Resultados")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🟥"):
+        history.append("R")
+        save_history(history)
+with col2:
+    if st.button("🟦"):
+        history.append("B")
+        save_history(history)
+with col3:
+    if st.button("🟨"):
+        history.append("Y")
+        save_history(history)
 
-if exact_matches >= 2:
-    st.success("🧠 A Coluna 1 está repetindo a Coluna 4 exatamente.")
-    st.markdown("📌 Sugestão: Siga a estrutura da Coluna 4 para a próxima jogada.")
-elif structure_matches >= 2:
-    st.info("🔄 A Coluna 1 está reescrevendo a Coluna 4 com outras cores.")
-    st.markdown("📌 Sugestão: O padrão estrutural se mantém, considere continuidade com troca de paleta.")
-else:
-    st.warning("Nenhuma semelhança significativa detectada. Aguarde mais resultados.")
+# Análise de padrões
+st.header("Análise de Padrões")
+if history:
+    st.write("Histórico:", history)
+    vermelho, azul, amarelo = analyze_patterns(history)
+    st.write("Vermelho:", vermelho)
+    st.write("Azul:", azul)
+    st.write("Amarelo:", amarelo)
+    next_result = predict_next_result(history)
+    if next_result == "R":
+        st.write("Próximo resultado:", "🟥")
+    elif next_result == "B":
+        st.write("Próximo resultado:", "🟦")
+    else:
+        st.write("Próximo resultado:", "🟨")
 
-# Estilo extra para textarea
-st.markdown("""
-<style>
-    .stTextArea textarea {
-        font-size: 20px;
-        line-height: 1.5;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Histórico
+st.header("Histórico")
+st.write(history)
