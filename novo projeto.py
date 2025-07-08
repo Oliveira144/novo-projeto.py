@@ -20,7 +20,30 @@ with col3:
     if st.button("🟡 Empate"):
         st.session_state.history.insert(0, "🟡")
 
-# Gerar linhas de 9 resultados
+# Exibir histórico em linha horizontal contínua
+st.subheader("🎯 Histórico (Mais Recente na Esquerda)")
+if st.session_state.history:
+    # Criar uma grade flexível
+    cols = st.columns(9 * len(st.session_state.history) // 9 + 1)
+    
+    # Exibir todos os resultados em uma única linha horizontal
+    for i, result in enumerate(st.session_state.history):
+        col_index = i % 9
+        row_index = i // 9
+        
+        if i % 9 == 0 and i > 0:
+            # Adicionar espaço entre as linhas
+            st.write("")
+            
+        with cols[col_index]:
+            st.markdown(
+                f"<div style='text-align:center;font-size:40px;margin-bottom:20px;'>{result}</div>",
+                unsafe_allow_html=True
+            )
+else:
+    st.info("Nenhum resultado ainda. Adicione os primeiros resultados.")
+
+# Gerar linhas de 9 resultados para análise
 rows = []
 temp = st.session_state.history.copy()
 while temp:
@@ -29,28 +52,6 @@ while temp:
         row += ["-"] * (9 - len(row))
     rows.append(row)
     temp = temp[9:]
-
-# Exibir histórico em linhas de 9 resultados
-st.subheader("🎯 Histórico em Linhas de 9 (Mais Recente na Esquerda)")
-if rows:
-    # Exibir do mais recente para o mais antigo (linha 1 = mais recente)
-    for idx, row in enumerate(rows, 1):
-        st.markdown(f"**Linha {idx}**")
-        cols = st.columns(9)
-        for i, result in enumerate(row):
-            with cols[i]:
-                if result != "-":
-                    st.markdown(
-                        f"<div style='text-align:center;font-size:40px;'>{result}</div>",
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        "<div style='text-align:center;font-size:40px;color:#cccccc;'>-</div>",
-                        unsafe_allow_html=True
-                    )
-else:
-    st.info("Nenhum resultado ainda. Adicione os primeiros resultados.")
 
 # Análise: Comparação com a 4ª linha anterior
 st.subheader("🔍 Análise: Comparação com a 4ª Linha Anterior")
