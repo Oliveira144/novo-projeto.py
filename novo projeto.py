@@ -1,75 +1,42 @@
 import streamlit as st
 
-# Configuração da página
+Configuração da página
+
 st.set_page_config(page_title="Análise Football Studio", layout="wide")
 
-# Mapeamento de cores
-COLOR_MAP = {
-    "🔵": "#3498db",  # Azul
-    "🔴": "#e74c3c",  # Vermelho
-    "🟡": "#f1c40f",  # Amarelo
-}
+Mapeamento de cores
 
-# Histórico salvo na sessão
-if "history" not in st.session_state:
-    st.session_state.history = []
+COLOR_MAP = { "🔵": "#3498db",  # Azul "🔴": "#e74c3c",  # Vermelho "🟡": "#f1c40f",  # Amarelo }
 
-# Entrada dos resultados
-st.title("📌 Histórico (Mais Recente Primeiro)")
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("🔵 Azul"):
-        st.session_state.history.insert(0, "🔵")
-with col2:
-    if st.button("🔴 Vermelho"):
-        st.session_state.history.insert(0, "🔴")
-with col3:
-    if st.button("🟡 Empate"):
-        st.session_state.history.insert(0, "🟡")
+Inicialização do estado
 
-# Função: Quebra o histórico em colunas de 9 (da esquerda pra direita)
-def dividir_em_colunas_lado_a_lado(lista, altura=9):
-    colunas = [[] for _ in range((len(lista) + altura - 1) // altura)]
-    for i, valor in enumerate(lista):
-        colunas[i // altura].append(valor)
-    return colunas
+if "history" not in st.session_state: st.session_state.history = []
 
-# Montar colunas
-colunas = dividir_em_colunas_lado_a_lado(st.session_state.history)
+Interface de entrada de cores
 
-# Exibir histórico em colunas de bolinhas
-st.subheader("🎯 Histórico em Colunas de 9")
-if colunas:
-    layout = st.columns(len(colunas))
-    for i, coluna in enumerate(colunas):
-        with layout[i]:
-            st.markdown(f"**Coluna {i+1}**")
-            for item in coluna:
-                st.markdown(
-                    f"<div style='text-align:center;font-size:40px;'>{item}</div>",
-                    unsafe_allow_html=True
-                )
-else:
-    st.info("Nenhum resultado ainda.")
+st.title("📌 Histórico (Mais Recente Primeiro)") col1, col2, col3 = st.columns(3) with col1: if st.button("🔵 Azul"): st.session_state.history.insert(0, "🔵") with col2: if st.button("🔴 Vermelho"): st.session_state.history.insert(0, "🔴") with col3: if st.button("🟡 Empate"): st.session_state.history.insert(0, "🟡")
 
-# Análise: Reescrita da 4ª Coluna na Nova
-st.subheader("🔍 Análise: Reescrita da 4ª Coluna na Nova")
-if len(colunas) >= 4:
-    primeira = colunas[0]
-    quarta = colunas[3]
-    analise = []
-    for i in range(min(len(primeira), len(quarta))):
-        analise.append({
-            "Índice": i+1,
-            "4ª Coluna": quarta[i],
-            "1ª Coluna": primeira[i],
-            "Resultado": "✅" if quarta[i] == primeira[i] else "❌"
-        })
-    st.table(analise)
-else:
-    st.info("🔄 Aguardando pelo menos 4 colunas para comparar...")
+Divide o histórico em linhas de 9 (mais recente à esquerda)
 
-# Botão de reset
-if st.button("🧹 Limpar Histórico"):
-    st.session_state.history = []
-    st.experimental_rerun()
+def dividir_em_linhas(lista, largura=9): linhas = [] for i in range(0, len(lista), largura): linhas.append(lista[i:i+largura]) return linhas
+
+Gerar as 3 linhas principais e dividir em colunas (esquerda para direita)
+
+h_linhas = dividir_em_linhas(st.session_state.history)
+
+Separar em histórico atual (3 primeiras linhas) e antigo (as 3 anteriores)
+
+h_atual = h_linhas[:3]  # Mais recente h_antigo = h_linhas[3:6] if len(h_linhas) >= 6 else []
+
+Completa as linhas para que todas tenham 9 itens
+
+for linha in h_atual: while len(linha) < 9: linha.append(" ") for linha in h_antigo: while len(linha) < 9: linha.append(" ")
+
+Exibir lado a lado
+
+st.subheader("🧱 Histórico Atual vs Antigo") for i in range(3): col_a, col_b = st.columns(2) with col_a: if i < len(h_atual): st.markdown("<div style='font-size:30px;'>" + "".join(h_atual[i]) + "</div>", unsafe_allow_html=True) with col_b: if i < len(h_antigo): st.markdown("<div style='font-size:30px;'>" + "".join(h_antigo[i]) + "</div>", unsafe_allow_html=True)
+
+Botão de limpar
+
+if st.button("🧹 Limpar Histórico"): st.session_state.history = [] st.experimental_rerun()
+
