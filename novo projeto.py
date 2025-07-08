@@ -27,24 +27,35 @@ with col3:
     if st.button("🟡 Empate"):
         st.session_state.history.insert(0, "🟡")
 
-# Função: Divide o histórico em linhas de 9 elementos
+# Função: Divide o histórico em linhas completas de 9 elementos
 def dividir_em_linhas(lista, elementos_por_linha=9):
-    return [lista[i:i + elementos_por_linha] 
-            for i in range(0, len(lista), elementos_por_linha)]
+    linhas = []
+    for i in range(0, len(lista), elementos_por_linha):
+        linha = lista[i:i+elementos_por_linha]
+        # Completa a linha com None se necessário
+        while len(linha) < elementos_por_linha:
+            linha.append(None)
+        linhas.append(linha)
+    return linhas
 
 # Montar linhas
 linhas = dividir_em_linhas(st.session_state.history)
 
 # Exibir histórico em linhas de bolinhas
 st.subheader("🎯 Histórico em Linhas de 9")
-if linhas:
+if st.session_state.history:
     for linha in linhas:
-        cols = st.columns(9)  # Sempre 9 colunas para manter o layout
-        for i in range(9):
-            if i < len(linha):
-                with cols[i]:
+        cols = st.columns(9)
+        for i, resultado in enumerate(linha):
+            with cols[i]:
+                if resultado:
                     st.markdown(
-                        f"<div style='text-align:center;font-size:40px;'>{linha[i]}</div>",
+                        f"<div style='text-align:center;font-size:40px;'>{resultado}</div>",
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        "<div style='text-align:center;font-size:40px;'>-</div>",
                         unsafe_allow_html=True
                     )
 else:
@@ -56,16 +67,17 @@ if len(linhas) >= 4:
     primeira_linha = linhas[0]
     quarta_linha = linhas[3]
     analise = []
-    for i in range(min(len(primeira_linha), len(quarta_linha))):
-        analise.append({
-            "Índice": i+1,
-            "4ª Linha": quarta_linha[i],
-            "1ª Linha": primeira_linha[i],
-            "Resultado": "✅" if quarta_linha[i] == primeira_linha[i] else "❌"
-        })
+    for i in range(9):  # Compara os 9 elementos de cada linha
+        if primeira_linha[i] and quarta_linha[i]:
+            analise.append({
+                "Posição": i+1,
+                "4ª Linha": quarta_linha[i],
+                "1ª Linha": primeira_linha[i],
+                "Resultado": "✅" if quarta_linha[i] == primeira_linha[i] else "❌"
+            })
     st.table(analise)
 else:
-    st.info("🔄 Aguardando pelo menos 4 linhas para comparar...")
+    st.info("🔄 Aguardando pelo menos 4 linhas completas para comparar...")
 
 # Botão de reset
 if st.button("🧹 Limpar Histórico"):
