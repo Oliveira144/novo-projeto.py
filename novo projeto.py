@@ -23,27 +23,36 @@ with col3:
 # Exibir histórico em linha horizontal contínua
 st.subheader("🎯 Histórico (Mais Recente na Esquerda)")
 if st.session_state.history:
-    # Criar uma grade flexível
-    cols = st.columns(9 * len(st.session_state.history) // 9 + 1)
+    # Calcular número de linhas necessárias
+    num_linhas = (len(st.session_state.history) // 9 + (1 if len(st.session_state.history) % 9 > 0 else 0)
     
-    # Exibir todos os resultados em uma única linha horizontal
-    for i, result in enumerate(st.session_state.history):
-        col_index = i % 9
-        row_index = i // 9
+    # Exibir cada linha de 9 resultados
+    for linha in range(num_linhas):
+        # Criar uma linha com 9 colunas
+        cols = st.columns(9)
         
-        if i % 9 == 0 and i > 0:
-            # Adicionar espaço entre as linhas
-            st.write("")
-            
-        with cols[col_index]:
-            st.markdown(
-                f"<div style='text-align:center;font-size:40px;margin-bottom:20px;'>{result}</div>",
-                unsafe_allow_html=True
-            )
+        # Calcular índice inicial e final para esta linha
+        start_idx = linha * 9
+        end_idx = start_idx + 9
+        
+        # Preencher cada coluna na linha atual
+        for pos in range(9):
+            idx = start_idx + pos
+            with cols[pos]:
+                if idx < len(st.session_state.history):
+                    st.markdown(
+                        f"<div style='text-align:center;font-size:40px;'>{st.session_state.history[idx]}</div>",
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        "<div style='text-align:center;font-size:40px;color:#cccccc;'>-</div>",
+                        unsafe_allow_html=True
+                    )
 else:
     st.info("Nenhum resultado ainda. Adicione os primeiros resultados.")
 
-# Gerar linhas de 9 resultados para análise
+# Gerar linhas completas para análise
 rows = []
 temp = st.session_state.history.copy()
 while temp:
@@ -56,7 +65,8 @@ while temp:
 # Análise: Comparação com a 4ª linha anterior
 st.subheader("🔍 Análise: Comparação com a 4ª Linha Anterior")
 if len(rows) >= 4:
-    # Linhas: [0] = mais recente, [3] = 4ª linha anterior
+    # Linha atual = mais recente (rows[0])
+    # 4ª linha anterior = rows[3]
     linha_atual = rows[0]
     linha_4_anterior = rows[3]
     
