@@ -5,12 +5,12 @@ from collections import Counter
 import json
 import os
 
-# --- Configurações Iniciais ---
+# Configurações Iniciais
 HISTORY_FILE = 'football_studio_history.json'
 LINE_LENGTH = 9
 ANALYSIS_LINE_INDEX = 3
 
-# --- Mapeamento de Cores ---
+# Mapeamento de Cores
 COLOR_MAP = {
     'R': {'name': 'Casa (Home)', 'color_hex': '                                 
     '#EF4444', 'text_color': 'white'},
@@ -18,13 +18,13 @@ COLOR_MAP = {
     'Y': {'name': 'Empate (Draw)', 'color_hex': '                                
 }
 
-                                          
+                                  
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, '#FACC15', 'text_color': 'black'}
 }
 
-# --- Funções de Persistência Local ---
+# Funções de Persistência Local
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, 'r') as f:
@@ -39,7 +39,7 @@ def save_history(history):
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f)
 
-                               
+                       
 def get_history_lines(history):
     lines = []
     reversed_history = history[::-1]
@@ -59,7 +59,7 @@ def analyze_repeating_line_patterns(history, history_lines):
             continue
         current_line_str = "".join(current_line)
         if target_line_str == current_line_str:
-            found_matches.append({'# --- Funções de Análise ---
+            found_matches.append({'# Funções de Análise
 def get_history_lines(history):
     lines = []
     reversed_history = history[::-1]
@@ -120,8 +120,4 @@ def analyze_general_patterns(history):
     last_color = history[-1]
     transitions = {c: Counter() for c in COLOR_MAP.keys()}
     for i in range(len(history) - 1):
-        transitions[history[i]][history[i+1]] += 1
-    if last_color in transitions and transitions[last_color]:
-        most_likely_next_transition, count_transition = transitions[last_color].most_common(1)[0]
-        total_transitions = sum(transitions[last_color].values())
-        confidence = round((count_transition / total_transitions)
+        transitions[history[i]][history[i
