@@ -7,8 +7,8 @@ if "historico" not in st.session_state:
 
 # Constantes
 RESULTADOS_POR_LINHA = 7
-TOTAL_LINHAS = 3
-TOTAL_JOGADAS = RESULTADOS_POR_LINHA * TOTAL_LINHAS
+MAX_LINHAS_HISTORICO = 80  # 80 linhas de histórico
+MAX_JOGADAS = RESULTADOS_POR_LINHA * MAX_LINHAS_HISTORICO  # 560 jogadas
 
 # Funções de lógica
 def cores_opostas(c1, c2):
@@ -35,9 +35,10 @@ def colunas_semelhantes(c1, c2):
     return True
 
 def inserir(cor):
-    if len(st.session_state.historico) < TOTAL_JOGADAS:
-        st.session_state.historico.insert(0, cor)
-    st.session_state.historico = st.session_state.historico[:TOTAL_JOGADAS]
+    st.session_state.historico.insert(0, cor)
+    # Mantém até 560 jogadas (80 linhas)
+    if len(st.session_state.historico) > MAX_JOGADAS:
+        st.session_state.historico = st.session_state.historico[:MAX_JOGADAS]
 
 def desfazer():
     if st.session_state.historico:
@@ -68,21 +69,24 @@ with col4:
 with col5:
     if st.button("🧹 Limpar", use_container_width=True): limpar()
 
-# Exibir histórico (máximo 21 jogadas)
+# Exibir histórico (até 80 linhas)
 st.markdown("---")
-st.subheader(f"📋 Histórico de Jogadas (últimas {TOTAL_JOGADAS}, mais recentes primeiro)")
+st.subheader(f"📋 Histórico de Jogadas (últimas {MAX_LINHAS_HISTORICO} linhas, 7 por linha)")
 
-historico_limitado = st.session_state.historico[:TOTAL_JOGADAS]
-
-# Divisão em linhas de 7
+# Divide em linhas de 7
+historico_limitado = st.session_state.historico[:MAX_JOGADAS]
 linhas = []
 for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
     linha = historico_limitado[i:i+RESULTADOS_POR_LINHA]
     linhas.append(linha)
 
-# Exibição
-for idx, linha in enumerate(linhas, 1):
-    st.markdown(f"**Linha {idx}:** " + " ".join(linha))
+# Exibe até as últimas 80 linhas completas
+linhas_exibidas = linhas[:MAX_LINHAS_HISTORICO]
+
+# Cria container com rolagem
+with st.container(height=400):  # Altura fixa com scroll
+    for idx, linha in enumerate(linhas_exibidas, 1):
+        st.markdown(f"**Linha {idx}:** " + " ".join(linha))
 
 # Frequência
 st.markdown("---")
@@ -94,13 +98,13 @@ st.write(f"🔴 Casa: {contagem['🔴']} | 🔵 Visitante: {contagem['🔵']} | 
 st.markdown("---")
 st.subheader("🧠 Detecção de Padrão Reescrito")
 
-# Usar apenas linhas completas para análise
-linhas_completas = [l for l in linhas if len(l) == RESULTADOS_POR_LINHA]
+# Filtra apenas linhas completas
+linhas_completas = [l for l in linhas_exibidas if len(l) == RESULTADOS_POR_LINHA]
 
 if len(linhas_completas) >= 2:
     # Duas linhas mais recentes
-    linha_recente = linhas_completas[0]  # Mais recente
-    linha_anterior = linhas_completas[1]  # Segunda mais recente
+    linha_recente = linhas_completas[0]
+    linha_anterior = linhas_completas[1]
 
     if padrao_reescrito(linha_recente, linha_anterior):
         ultima_jogada = linha_recente[-1]
@@ -118,55 +122,61 @@ if len(linhas_completas) >= 2:
         """)
     else:
         st.info("⏳ Nenhum padrão reescrito identificado entre as duas últimas linhas completas.")
-elif len(historico_limitado) < (RESULTADOS_POR_LINHA * 2):
-    st.warning(f"⚠️ Registre pelo menos {RESULTADOS_POR_LINHA * 2} jogadas para ativar a análise (2 linhas de {RESULTADOS_POR_LINHA}).")
 else:
-    st.info("Aguardando segunda linha completa para análise.")
+    st.warning(f"⚠️ Registre pelo menos 2 linhas completas de {RESULTADOS_POR_LINHA} jogadas para ativar a análise.")
 
 # Análise por colunas verticais
 st.markdown("---")
 st.subheader("🧬 Análise por Colunas Verticais")
 
-if len(historico_limitado) == TOTAL_JOGADAS:
-    # Monta matriz 3x7 (linhas completas)
-    matriz_3x7 = linhas[:TOTAL_LINHAS]  # As 3 linhas mais recentes
+# Seleciona as últimas 3 linhas completas
+linhas_para_colunas = [l for l in linhas_completas[:3] if len(l) == RESULTADOS_POR_LINHA]
+
+if len(linhas_para_colunas) == 3:
+    # Monta matriz 3x7
+    matriz_3x7 = linhas_para_colunas
     
     # Transpõe para colunas
     colunas = list(zip(*matriz_3x7))
 
     # Referência: Coluna 4 (índice 3) e Nova Coluna (índice 0)
-    ref_coluna_antiga = colunas[3]  # Coluna 4
-    nova_coluna = colunas[0]        # Coluna 1
+    if len(colunas) >= 5:  # Garante que temos coluna 4 e 5
+        ref_coluna_antiga = colunas[3]
+        nova_coluna = colunas[0]
 
-    if colunas_semelhantes(ref_coluna_antiga, nova_coluna):
-        coluna_apos_ref = colunas[4]
-        proxima_sugestao = coluna_apos_ref[0]
-        if proxima_sugestao == "🔴":
-            sugestao_convertida = "🔵"
-        elif proxima_sugestao == "🔵":
-            sugestao_convertida = "🔴"
+        if colunas_semelhantes(ref_coluna_antiga, nova_coluna):
+            coluna_apos_ref = colunas[4]
+            if coluna_apos_ref:  # Verifica se tem elementos
+                proxima_sugestao = coluna_apos_ref[0]
+                if proxima_sugestao == "🔴":
+                    sugestao_convertida = "🔵"
+                elif proxima_sugestao == "🔵":
+                    sugestao_convertida = "🔴"
+                else:
+                    sugestao_convertida = "🟡"
+
+                st.success(f"""
+                🔂 Estrutura de colunas repetida com troca de cores detectada!
+                \n📌 Coluna antiga (posição 4) ≈ Nova coluna (posição 1)
+                \n💡 Padrão esperado: Após a coluna 4 veio **{proxima_sugestao}**
+                \n🎯 **Sugestão:** Jogar {sugestao_convertida}
+                """)
+            else:
+                st.info("⚠️ Não foi possível gerar sugestão (coluna de referência vazia)")
         else:
-            sugestao_convertida = "🟡"
-
-        st.success(f"""
-        🔂 Estrutura de colunas repetida com troca de cores detectada!
-        \n📌 Coluna antiga (posição 4) ≈ Nova coluna (posição 1)
-        \n💡 Padrão esperado: Após a coluna 4 veio **{proxima_sugestao}**
-        \n🎯 **Sugestão:** Jogar {sugestao_convertida}
-        """)
+            st.info("📊 Nenhum padrão repetido de colunas encontrado nas últimas 3 linhas.")
     else:
-        st.info("📊 Nenhum padrão repetido de colunas encontrado nas últimas 21 jogadas.")
+        st.warning("⚠️ Dados insuficientes para análise de colunas")
 else:
-    st.warning(f"⚠️ Registre exatamente {TOTAL_JOGADAS} jogadas para ativar a análise por colunas verticais.")
+    st.warning(f"⚠️ Registre 3 linhas completas de {RESULTADOS_POR_LINHA} jogadas para ativar a análise por colunas")
 
 # Visualização das colunas verticais com cores
-if len(historico_limitado) == TOTAL_JOGADAS:
-    st.subheader(f"🧱 Visualização das Colunas Verticais ({TOTAL_LINHAS}x{RESULTADOS_POR_LINHA})")
+if len(linhas_para_colunas) == 3:
+    st.subheader("🧱 Visualização das Últimas 3 Linhas (Colunas Verticais)")
 
     col_container = st.container()
     cols = col_container.columns(RESULTADOS_POR_LINHA)
     
-    # Usando a matriz já existente
     colunas_texto = list(zip(*matriz_3x7))
 
     for i, coluna in enumerate(colunas_texto):
@@ -186,4 +196,5 @@ if len(historico_limitado) == TOTAL_JOGADAS:
             )
         
         texto_html = f"<b>Coluna {i+1}</b><br>" + "<br>".join(elementos_html)
-        cols[i].markdown(texto_html, unsafe_allow_html=True)
+        if i < len(cols):  # Previne erro de índice
+            cols[i].markdown(texto_html, unsafe_allow_html=True)
