@@ -5,8 +5,8 @@ from collections import Counter
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
-# Constantes
-RESULTADOS_POR_LINHA = 7
+# Constantes - AJUSTADAS PARA 8 RESULTADOS POR LINHA
+RESULTADOS_POR_LINHA = 8
 MAX_LINHAS_HISTORICO = 80
 MAX_JOGADAS = RESULTADOS_POR_LINHA * MAX_LINHAS_HISTORICO
 
@@ -95,12 +95,12 @@ for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
     linha = historico_limitado[i:i+RESULTADOS_POR_LINHA]
     linhas.append(linha)
 
-# Detectar padrões de reescrita (CORRIGIDO)
+# Detectar padrões de reescrita
 padroes_reescrita = detectar_padrao_reescrita(linhas)
 
 # Exibir histórico com destaque para padrões
 st.markdown("---")
-st.subheader(f"📋 Histórico de Jogadas (Padrões Detectados)")
+st.subheader(f"📋 Histórico de Jogadas ({RESULTADOS_POR_LINHA} por linha)")
 
 with st.container(height=500):
     for idx, linha in enumerate(linhas, 1):
@@ -120,19 +120,13 @@ with st.container(height=500):
         else:
             st.markdown(f"**Linha {idx}:** " + " ".join(linha))
 
-# Análise de padrão reescrito em tempo real (CORREÇÃO CRÍTICA)
+# Análise de padrão reescrito em tempo real
 st.markdown("---")
 st.subheader("🧠 Detecção de Padrão de Reescreta Atual")
 
 if len(linhas) >= 2:
-    # CORREÇÃO: Linha atual é a mais recente (linha 1)
-    # Linha anterior é a seguinte (linha 2)
     linha_atual = linhas[0]
     linha_anterior = linhas[1]
-    
-    # Debug: Mostrar linhas sendo comparadas
-    st.info(f"Comparando linha atual (Linha 1): {' '.join(linha_atual)}")
-    st.info(f"Comparando linha anterior (Linha 2): {' '.join(linha_anterior)}")
     
     # Verificar se temos linhas completas para análise
     if len(linha_atual) == RESULTADOS_POR_LINHA and len(linha_anterior) == RESULTADOS_POR_LINHA:
@@ -212,13 +206,32 @@ st.subheader("📊 Frequência de Cores")
 contagem = Counter(historico_limitado)
 st.write(f"🔴 Casa: {contagem['🔴']} | 🔵 Visitante: {contagem['🔵']} | 🟡 Empate: {contagem['🟡']}")
 
-# Debug: Mostrar todas as linhas completas
-if st.checkbox("Mostrar dados brutos para depuração"):
-    st.subheader("💻 Dados Brutos do Histórico")
-    st.write(f"Total de linhas: {len(linhas)}")
-    for i, linha in enumerate(linhas):
-        st.write(f"Linha {i+1}: {linha}")
+# Visualização de tendências
+st.markdown("---")
+st.subheader("📈 Análise de Tendências")
+
+if len(linhas) > 0:
+    # Calcula a porcentagem de cada cor nas últimas 3 linhas completas
+    ultimas_jogadas = []
+    for linha in linhas[:3]:
+        if len(linha) == RESULTADOS_POR_LINHA:
+            ultimas_jogadas.extend(linha)
     
-    if padroes_reescrita:
-        st.subheader("Padrões Detectados")
-        st.json(padroes_reescrita)
+    if ultimas_jogadas:
+        total = len(ultimas_jogadas)
+        contagem_tendencia = Counter(ultimas_jogadas)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            percent_casa = (contagem_tendencia.get("🔴", 0) / total) * 100
+            st.metric("🔴 Casa", f"{percent_casa:.1f}%")
+        with col2:
+            percent_visit = (contagem_tendencia.get("🔵", 0) / total) * 100
+            st.metric("🔵 Visitante", f"{percent_visit:.1f}%")
+        with col3:
+            percent_empate = (contagem_tendencia.get("🟡", 0) / total) * 100
+            st.metric("🟡 Empate", f"{percent_empate:.1f}%")
+    else:
+        st.info("Nenhuma jogada completa registrada nas últimas 3 linhas")
+else:
+    st.info("Registre jogadas para ver as tendências")
