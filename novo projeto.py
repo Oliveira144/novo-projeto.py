@@ -81,6 +81,40 @@ def analisar_padrao_reescrito(linha1, linha2, limite=0.7):
     
     return resultado
 
+def detectar_sequencia(sequencia):
+    """Detecta padrões em sequências de cores"""
+    if len(sequencia) < 3:
+        return None
+    
+    # Verifica padrões simples
+    ultimos = sequencia[-3:]
+    
+    # Padrão alternado
+    if all(cores_opostas(ultimos[i], ultimos[i+1]) for i in range(2)):
+        return "alternado"
+    
+    # Padrão repetido
+    if len(set(ultimos)) == 1:
+        return "repetido"
+    
+    # Padrão específico
+    if ultimos == ["🔴", "🔵", "🔴"]:
+        return "🔴🔵🔴"
+    elif ultimos == ["🔵", "🔴", "🔵"]:
+        return "🔵🔴🔵"
+    
+    return None
+
+def calcular_confianca_sequencia(padrao):
+    """Calcula confiança baseada no tipo de padrão"""
+    confianca = {
+        "alternado": 85,
+        "repetido": 90,
+        "🔴🔵🔴": 80,
+        "🔵🔴🔵": 80
+    }
+    return confianca.get(padrao, 70)
+
 def analisar_colunas(linhas_completas, limite_confianca=70):
     """Realiza varredura avançada em todas as colunas"""
     padroes_detectados = []
@@ -118,7 +152,7 @@ def analisar_colunas(linhas_completas, limite_confianca=70):
             # Verifica se há coluna após a coluna de referência
             if i + 1 < total_colunas:
                 coluna_apos_ref = colunas[i + 1]
-                elemento_comum = Counter(coluna_apos_ref).most_common(1)[0][0]
+                elemento_comum = Counter(coluna_apos_ref).most_common(1)[0][0] if coluna_apos_ref else "🟡"
                 
                 # Sugestão baseada em lógica aprimorada
                 if elemento_comum == "🔴":
@@ -146,16 +180,18 @@ def analisar_colunas(linhas_completas, limite_confianca=70):
     for seq in padroes_sequencia:
         if seq["confianca"] >= limite_confianca:
             # Lógica para sugestão baseada em sequência
-            ultimo = seq["padrao"][-1]
-            if ultimo == "🔴":
-                sugestao = "🔵"
-                logica = "Sequência: oposto ao último elemento"
-            elif ultimo == "🔵":
-                sugestao = "🔴"
-                logica = "Sequência: oposto ao último elemento"
+            padrao_str = seq["padrao"]
+            if isinstance(padrao_str, str):
+                if padrao_str.endswith('🔴'):
+                    sugestao = "🔵"
+                elif padrao_str.endswith('🔵'):
+                    sugestao = "🔴"
+                else:
+                    sugestao = "🟡"
+                logica = f"Sequência: {padrao_str} (jogar oposto)"
             else:
                 sugestao = "🟡"
-                logica = "Sequência: empate detectado"
+                logica = "Sequência detectada"
             
             padroes_combinados.append({
                 "tipo": "sequencia",
@@ -187,45 +223,17 @@ def analisar_colunas(linhas_completas, limite_confianca=70):
     
     return padroes_detectados
 
-def detectar_sequencia(sequencia):
-    """Detecta padrões em sequências de cores"""
-    if len(sequencia) < 3:
-        return None
-    
-    # Verifica padrões simples
-    ultimos = sequencia[-3:]
-    
-    # Padrão alternado
-    if all(cores_opostas(ultimos[i], ultimos[i+1]) for i in range(2)):
-        return "alternado"
-    
-    # Padrão repetido
-    if len(set(ultimos)) == 1:
-        return "repetido"
-    
-    # Padrão específico
-    if ultimos == ["🔴", "🔵", "🔴"]:
-        return "🔴🔵🔴"
-    elif ultimos == ["🔵", "🔴", "🔵"]:
-        return "🔵🔴🔵"
-    
-    return None
+def inserir(cor):
+    st.session_state.historico.insert(0, cor)
+    if len(st.session_state.historico) > MAX_JOGADAS:
+        st.session_state.historico = st.session_state.historico[:MAX_JOGADAS]
 
-def calcular_confianca_sequencia(padrao):
-    """Calcula confiança baseada no tipo de padrão"""
-    confianca = {
-        "alternado": 85,
-        "repetido": 90,
-        "🔴🔵🔴": 80,
-        "🔵🔴🔵": 80
-    }
-    return confianca.get(padrao, 70)
+def desfazer():
+    if st.session_state.historico:
+        st.session_state.historico.pop(0)
 
-# Funções de UI e manipulação de dados mantidas...
-
-# =================================================================
-# INTERFACE DO USUÁRIO ATUALIZADA
-# =================================================================
+def limpar():
+    st.session_state.historico.clear()
 
 # Configuração visual
 st.set_page_config(page_title="FS Análise Pro+", layout="centered")
@@ -236,18 +244,23 @@ st.caption("Sistema avançado de detecção de padrões para Football Studio Liv
 # Botões de entrada
 col1, col2, col3 = st.columns(3)
 with col1:
-    if st.button("🔴 Casa", use_container_width=True, key="casa"): inserir("🔴")
+    if st.button("🔴 Casa", use_container_width=True, key="btn_casa"):
+        inserir("🔴")
 with col2:
-    if st.button("🔵 Visitante", use_container_width=True, key="visit"): inserir("🔵")
+    if st.button("🔵 Visitante", use_container_width=True, key="btn_visitante"):
+        inserir("🔵")
 with col3:
-    if st.button("🟡 Empate", use_container_width=True, key="empate"): inserir("🟡")
+    if st.button("🟡 Empate", use_container_width=True, key="btn_empate"):
+        inserir("🟡")
 
 # Controles
 col4, col5 = st.columns(2)
 with col4:
-    if st.button("↩️ Desfazer", use_container_width=True): desfazer()
+    if st.button("↩️ Desfazer", use_container_width=True, key="btn_desfazer"):
+        desfazer()
 with col5:
-    if st.button("🧹 Limpar", use_container_width=True): limpar()
+    if st.button("🧹 Limpar", use_container_width=True, key="btn_limpar"):
+        limpar()
 
 # Processar histórico
 historico_limitado = st.session_state.historico[:MAX_JOGADAS]
@@ -260,7 +273,7 @@ for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
 linhas_completas = [l for l in linhas if len(l) == RESULTADOS_POR_LINHA]
 
 # Executa análises com limite de confiança ajustável
-limite_confianca = st.sidebar.slider("Limite de Confiança (%)", 50, 95, 70, 5)
+limite_confianca = st.sidebar.slider("Limite de Confiança (%)", 50, 95, 70, 5, key="limite_confianca")
 padroes_colunas = analisar_colunas(linhas_completas, limite_confianca)
 
 # Exibir histórico
@@ -275,7 +288,7 @@ with st.container(height=400):
 st.markdown("---")
 st.subheader("📊 Frequência de Cores")
 contagem = Counter(historico_limitado)
-st.write(f"- [ ] Casa: {contagem['🔴']}  \n- [ ] Visitante: {contagem['🔵']}  \n- [ ] Empate: {contagem['🟡']}")
+st.write(f"- [ ] Casa: {contagem.get('🔴', 0)}  \n- [ ] Visitante: {contagem.get('🔵', 0)}  \n- [ ] Empate: {contagem.get('🟡', 0)}")
 
 # Análise de padrão reescrito aprimorada
 st.markdown("---")
@@ -292,10 +305,10 @@ if len(linhas_completas) >= 2:
         ultimas_3 = [linhas_completas[i] for i in range(min(3, len(linhas_completas)))]
         tendencia = Counter([x for sublist in ultimas_3 for x in sublist])
         
-        if tendencia["🔴"] > tendencia["🔵"] + 2:
+        if tendencia.get("🔴", 0) > tendencia.get("🔵", 0) + 2:
             jogada_sugerida = "🔵"
             logica = "Tendência de 🔴 (jogar oposto)"
-        elif tendencia["🔵"] > tendencia["🔴"] + 2:
+        elif tendencia.get("🔵", 0) > tendencia.get("🔴", 0) + 2:
             jogada_sugerida = "🔴"
             logica = "Tendência de 🔵 (jogar oposto)"
         else:
@@ -312,9 +325,9 @@ if len(linhas_completas) >= 2:
         # Gráfico de tendência
         st.subheader("📈 Tendência Recente")
         cols = st.columns(3)
-        cols[0].metric("🔴 Casa", tendencia["🔴"])
-        cols[1].metric("🔵 Visitante", tendencia["🔵"])
-        cols[2].metric("🟡 Empate", tendencia["🟡"])
+        cols[0].metric("🔴 Casa", tendencia.get("🔴", 0))
+        cols[1].metric("🔵 Visitante", tendencia.get("🔵", 0))
+        cols[2].metric("🟡 Empate", tendencia.get("🟡", 0))
         
     else:
         st.error(f"⚠️ **Padrão não detectado** (correspondência: {analise['porcentagem_match']:.0%})")
@@ -323,8 +336,8 @@ if len(linhas_completas) >= 2:
         st.subheader("💡 Sugestão por Frequência")
         freq_total = sum(contagem.values())
         if freq_total > 0:
-            percent_red = contagem["🔴"] / freq_total
-            percent_blue = contagem["🔵"] / freq_total
+            percent_red = contagem.get("🔴", 0) / freq_total
+            percent_blue = contagem.get("🔵", 0) / freq_total
             
             if abs(percent_red - percent_blue) > 0.15:  # Diferença significativa
                 sugestao = "🔵" if percent_red > percent_blue else "🔴"
@@ -332,8 +345,30 @@ if len(linhas_completas) >= 2:
             else:
                 st.info("Frequências equilibradas - Sugerimos 🟡 Empate")
     
-    # Visualização da comparação (mantida da versão anterior)
-    # ... (código de visualização permanece o mesmo)
+    # Visualização da comparação
+    st.subheader("🔍 Comparação Visual")
+    cols_vis = st.columns(RESULTADOS_POR_LINHA)
+    for pos in range(RESULTADOS_POR_LINHA):
+        with cols_vis[pos]:
+            if pos < len(linha_recente) and pos < len(linha_anterior):
+                a = linha_recente[pos]
+                b = linha_anterior[pos]
+                
+                # Verificar se é diferença
+                is_difference = any(d["posicao"] == pos+1 for d in analise["diferencas"])
+                bg_color = "#ffcccc" if is_difference else "#e6ffe6"
+                
+                st.markdown(f"<div style='background-color: {bg_color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                            f"<div style='font-size: 20px;'>{a}</div>"
+                            f"<div style='font-size: 12px;'>vs</div>"
+                            f"<div style='font-size: 20px;'>{b}</div>"
+                            f"</div>", unsafe_allow_html=True)
+                st.caption(f"Posição {pos+1}")
+    
+elif len(historico_limitado) < (RESULTADOS_POR_LINHA * 2):
+    st.warning(f"⚠️ Registre pelo menos {RESULTADOS_POR_LINHA * 2} jogadas para ativar a análise (2 linhas de {RESULTADOS_POR_LINHA}).")
+else:
+    st.info("Aguardando segunda linha completa para análise.")
 
 # Seção de sugestões aprimorada
 st.markdown("---")
@@ -363,7 +398,7 @@ if padroes_colunas:
             """)
             
             # Botão para jogar diretamente
-            if st.button(f"Jogar {sugestao}", key=f"btn_{sugestao}"):
+            if st.button(f"Jogar {sugestao}", key=f"btn_jogar_{sugestao}"):
                 inserir(sugestao)
                 st.experimental_rerun()
             
@@ -374,14 +409,14 @@ if padroes_colunas:
         for i, padrao in enumerate(padroes_colunas, 1):
             if padrao["confianca"] >= limite_confianca:
                 st.markdown(f"""
-                ### Padrão {i} ({padrao['tipo'] if 'tipo' in padrao else 'reescrita'})
+                ### Padrão {i}
                 - 🎯 **Sugestão:** {padrao["sugestao"]}
                 - 📊 **Confiança:** {padrao["confianca"]:.1f}%
                 - 🧠 **Lógica:** {padrao["logica"]}
                 """)
-                if "detalhes" in padrao:
-                    st.write(f"🔍 **Match:** {padrao['detalhes']['porcentagem_match']:.0%}")
                 st.markdown("---")
+else:
+    st.info("⚠️ Nenhum padrão detectado com o limite de confiança atual. Tente ajustar o limite ou adicionar mais jogadas.")
 
 # Análise de tendências aprimorada
 st.markdown("---")
@@ -395,22 +430,33 @@ if len(linhas_completas) > 0:
         total = len(ultimas_jogadas)
         
         # Calcula desvio padrão para determinar volatilidade
-        valores = [1 if x == "🔴" else -1 if x == "🔵" else 0 for x in ultimas_jogadas]
-        volatilidade = np.std(valores)
+        valores = []
+        for x in ultimas_jogadas:
+            if x == "🔴":
+                valores.append(1)
+            elif x == "🔵":
+                valores.append(-1)
+            else:
+                valores.append(0)
+        
+        if len(valores) > 1:
+            volatilidade = np.std(valores)
+        else:
+            volatilidade = 0
         
         st.write("**Distribuição nas últimas jogadas:**")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            percent_casa = (contagem_tendencia["🔴"] / total) * 100
+            percent_casa = (contagem_tendencia.get("🔴", 0) / total) * 100
             st.metric("🔴 Casa", f"{percent_casa:.1f}%")
         
         with col2:
-            percent_visit = (contagem_tendencia["🔵"] / total) * 100
+            percent_visit = (contagem_tendencia.get("🔵", 0) / total) * 100
             st.metric("🔵 Visitante", f"{percent_visit:.1f}%")
         
         with col3:
-            percent_empate = (contagem_tendencia["🟡"] / total) * 100
+            percent_empate = (contagem_tendencia.get("🟡", 0) / total) * 100
             st.metric("🟡 Empate", f"{percent_empate:.1f}%")
         
         with col4:
@@ -431,5 +477,3 @@ if len(linhas_completas) > 0:
             st.warning(f"Tendência forte para 🔵 Visitante ({percent_visit:.1f}%) - Sugerimos 🔴 Casa")
         else:
             st.info("Nenhuma tendência dominante detectada - Jogue com cautela")
-
-# Restante do código mantido...
