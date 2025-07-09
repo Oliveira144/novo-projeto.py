@@ -5,7 +5,7 @@ from collections import Counter
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
-# Constantes - AJUSTADAS PARA 8 RESULTADOS POR LINHA
+# Constantes
 RESULTADOS_POR_LINHA = 8
 MAX_LINHAS_HISTORICO = 80
 MAX_JOGADAS = RESULTADOS_POR_LINHA * MAX_LINHAS_HISTORICO
@@ -35,6 +35,9 @@ def detectar_padrao_reescrita(historico_linhas):
     padroes = []
     linhas_completas = [linha for linha in historico_linhas if len(linha) == RESULTADOS_POR_LINHA]
     
+    if len(linhas_completas) < 2:
+        return padroes
+    
     # Compara linhas consecutivas (n e n-1)
     for i in range(1, len(linhas_completas)):
         linha_atual = linhas_completas[i]      # Linha mais recente na comparação
@@ -48,7 +51,6 @@ def detectar_padrao_reescrita(historico_linhas):
             padroes.append({
                 "linha_atual": linha_atual,
                 "linha_anterior": linha_anterior,
-                "posicao": i,
                 "sugestao": sugestao
             })
     
@@ -98,27 +100,21 @@ for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
 # Detectar padrões de reescrita
 padroes_reescrita = detectar_padrao_reescrita(linhas)
 
-# Exibir histórico com destaque para padrões
+# Exibir histórico simplificado
 st.markdown("---")
 st.subheader(f"📋 Histórico de Jogadas ({RESULTADOS_POR_LINHA} por linha)")
 
-with st.container(height=500):
-    for idx, linha in enumerate(linhas, 1):
-        # Verificar se esta linha está em um padrão detectado
-        em_padrao = any(linha == padrao["linha_atual"] for padrao in padroes_reescrita)
-        
-        if em_padrao:
-            # Encontrar o padrão completo correspondente
-            padrao_correspondente = next((p for p in padroes_reescrita if p["linha_atual"] == linha), None)
-            
-            # Exibir com destaque especial
-            st.markdown(f"<div style='background-color: #e6f7ff; padding: 10px; border-radius: 5px; border-left: 4px solid #1890ff; margin-bottom: 10px;'>"
-                        f"<b>Linha {idx} (Padrão Detectado):</b> " + " ".join(linha) +
-                        f"<br><b>Comparada com Linha {idx-1}:</b> " + " ".join(padrao_correspondente['linha_anterior']) +
-                        f"<br>🎯 <b>Sugestão:</b> {padrao_correspondente['sugestao']}</div>", 
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(f"**Linha {idx}:** " + " ".join(linha))
+for idx, linha in enumerate(linhas, 1):
+    # Verificar se esta linha está em um padrão detectado
+    em_padrao = any(linha == padrao["linha_atual"] for padrao in padroes_reescrita)
+    
+    if em_padrao:
+        padrao_correspondente = next((p for p in padroes_reescrita if p["linha_atual"] == linha), None)
+        # Exibição simplificada sem HTML complexo
+        st.success(f"**Linha {idx} (Padrão Detectado):** " + " ".join(linha))
+        st.info(f"🎯 **Sugestão:** {padrao_correspondente['sugestao']}")
+    else:
+        st.markdown(f"**Linha {idx}:** " + " ".join(linha))
 
 # Análise de padrão reescrito em tempo real
 st.markdown("---")
@@ -161,9 +157,8 @@ if len(linhas) >= 2:
                         cor = "red"
                     
                     st.markdown(f"**Posição {i+1}**")
-                    st.markdown(f"<div style='text-align: center; font-size: 20px;'>{a}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align: center; font-size: 20px;'>{b}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='color: {cor}; text-align: center;'>{status}</div>", unsafe_allow_html=True)
+                    st.markdown(f"{a} → {b}")
+                    st.markdown(f":{cor}[{status}]")
         else:
             st.error("""
             ⚠️ **Padrão não detectado!** 
@@ -173,15 +168,6 @@ if len(linhas) >= 2:
             2. Muitos empates interferindo na comparação
             3. Padrão não se encaixa na definição de reescrita
             """)
-            
-            # Mostrar diferenças específicas
-            diferencas = []
-            for i, (a, b) in enumerate(zip(linha_atual, linha_anterior)):
-                if a != "🟡" and b != "🟡" and not cores_opostas(a, b):
-                    diferencas.append(f"Posição {i+1}: {a} vs {b}")
-            
-            if diferencas:
-                st.warning(f"Diferenças encontradas: {', '.join(diferencas)}")
     else:
         st.warning(f"⚠️ Complete ambas as linhas com {RESULTADOS_POR_LINHA} jogadas para análise")
 else:
