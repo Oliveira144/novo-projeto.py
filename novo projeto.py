@@ -1,11 +1,11 @@
 import streamlit as st
-from collections import Counter
+from collections import Counter, defaultdict
 
 # Inicializa histórico
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
-# Constantes (AJUSTADO PARA 8 RESULTADOS POR LINHA)
+# Constantes
 RESULTADOS_POR_LINHA = 8
 MAX_LINHAS_HISTORICO = 80
 MAX_JOGADAS = RESULTADOS_POR_LINHA * MAX_LINHAS_HISTORICO
@@ -68,22 +68,86 @@ with col4:
 with col5:
     if st.button("🧹 Limpar", use_container_width=True): limpar()
 
-# Exibir histórico (máximo 80 linhas)
-st.markdown("---")
-st.subheader(f"📋 Histórico de Jogadas (últimas {MAX_LINHAS_HISTORICO} linhas, 8 por linha)")
-
+# Processar histórico
 historico_limitado = st.session_state.historico[:MAX_JOGADAS]
 linhas = []
 for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
     linha = historico_limitado[i:i+RESULTADOS_POR_LINHA]
     linhas.append(linha)
 
-# Exibe até as últimas 80 linhas completas
-linhas_exibidas = linhas[:MAX_LINHAS_HISTORICO]
+# Filtra linhas completas
+linhas_completas = [l for l in linhas if len(l) == RESULTADOS_POR_LINHA]
 
-# Container com rolagem para histórico
+# =================================================================
+# NOVO ALGORITMO DE VARREDURA DE COLUNAS PARA IDENTIFICAÇÃO DE PADRÕES
+# =================================================================
+
+def analisar_colunas(linhas_completas):
+    """Realiza varredura completa em todas as colunas para identificar padrões"""
+    padroes_detectados = []
+    
+    if len(linhas_completas) < 3:
+        return padroes_detectados
+    
+    # Cria matriz de colunas
+    matriz_3x8 = linhas_completas[:3]
+    colunas = list(zip(*matriz_3x8))
+    
+    # Dicionário para armazenar padrões encontrados
+    padroes = defaultdict(list)
+    
+    # Varre todas as combinações possíveis de colunas
+    for j in range(len(colunas)):
+        for i in range(j):
+            if colunas_semelhantes(colunas[i], colunas[j]):
+                # Registra o padrão encontrado
+                padroes[j].append({
+                    "coluna_ref": i,
+                    "coluna_atual": j,
+                    "similaridade": True
+                })
+    
+    # Gera sugestões baseadas nos padrões encontrados
+    for coluna, padroes_coluna in padroes.items():
+        for padrao in padroes_coluna:
+            coluna_ref = padrao["coluna_ref"]
+            
+            # Verifica se há uma coluna após a coluna de referência
+            if coluna_ref + 1 < len(colunas):
+                coluna_apos_ref = colunas[coluna_ref + 1]
+                
+                # Sugestão baseada no primeiro elemento da coluna após referência
+                primeiro_elemento = coluna_apos_ref[0]
+                if primeiro_elemento == "🔴":
+                    sugestao = "🔵"
+                elif primeiro_elemento == "🔵":
+                    sugestao = "🔴"
+                else:
+                    sugestao = "🟡"
+                
+                padroes_detectados.append({
+                    "coluna_ref": coluna_ref,
+                    "coluna_atual": coluna,
+                    "coluna_apos_ref": coluna_ref + 1,
+                    "sugestao": sugestao,
+                    "elemento_referencia": primeiro_elemento
+                })
+    
+    return padroes_detectados
+
+# Executa a análise avançada
+padroes_colunas = analisar_colunas(linhas_completas)
+
+# =================================================================
+# INTERFACE DO USUÁRIO
+# =================================================================
+
+# Exibir histórico
+st.markdown("---")
+st.subheader(f"📋 Histórico de Jogadas ({RESULTADOS_POR_LINHA} por linha)")
+
 with st.container(height=400):
-    for idx, linha in enumerate(linhas_exibidas, 1):
+    for idx, linha in enumerate(linhas, 1):
         st.markdown(f"**Linha {idx}:** " + " ".join(linha))
 
 # Frequência
@@ -92,17 +156,13 @@ st.subheader("📊 Frequência de Cores")
 contagem = Counter(historico_limitado)
 st.write(f"🔴 Casa: {contagem['🔴']} | 🔵 Visitante: {contagem['🔵']} | 🟡 Empate: {contagem['🟡']}")
 
-# Análise por linhas (padrão reescrito)
+# Análise de padrão reescrito
 st.markdown("---")
 st.subheader("🧠 Detecção de Padrão Reescrito")
 
-# Filtra apenas linhas completas
-linhas_completas = [l for l in linhas_exibidas if len(l) == RESULTADOS_POR_LINHA]
-
 if len(linhas_completas) >= 2:
-    # Duas linhas mais recentes
-    linha_recente = linhas_completas[0]  # Mais recente
-    linha_anterior = linhas_completas[1]  # Segunda mais recente
+    linha_recente = linhas_completas[0]
+    linha_anterior = linhas_completas[1]
 
     if padrao_reescrito(linha_recente, linha_anterior):
         ultima_jogada = linha_recente[-1]
@@ -125,68 +185,64 @@ elif len(historico_limitado) < (RESULTADOS_POR_LINHA * 2):
 else:
     st.info("Aguardando segunda linha completa para análise.")
 
-# Análise por colunas verticais
+# Análise avançada de colunas
 st.markdown("---")
-st.subheader("🧬 Análise por Colunas Verticais")
+st.subheader("🔍 Varredura Avançada de Colunas")
 
-# Seleciona as últimas 3 linhas completas
-linhas_para_colunas = [l for l in linhas_completas[:3] if len(l) == RESULTADOS_POR_LINHA]
-
-if len(linhas_para_colunas) >= 3:
-    matriz_3x8 = linhas_para_colunas[:3]
-    colunas = list(zip(*matriz_3x8))
-
-    # Verificação de segurança
-    if len(colunas) >= 5:
-        ref_coluna_antiga = colunas[3]  # Coluna 4
-        nova_coluna = colunas[0]        # Coluna 1
-
-        if colunas_semelhantes(ref_coluna_antiga, nova_coluna):
-            coluna_apos_ref = colunas[4]
-            if coluna_apos_ref: 
-                proxima_sugestao = coluna_apos_ref[0]
-                if proxima_sugestao == "🔴":
-                    sugestao_convertida = "🔵"
-                elif proxima_sugestao == "🔵":
-                    sugestao_convertida = "🔴"
-                else:
-                    sugestao_convertida = "🟡"
-
-                st.success(f"""
-                🔂 Estrutura de colunas repetida detectada!
-                \n📌 Padrão: Coluna 4 ≈ Coluna 1
-                \n💡 Após coluna 4 veio: **{proxima_sugestao}**
-                \n🎯 **Sugestão:** Jogar {sugestao_convertida}
-                """)
-            else:
-                st.info("🔍 Padrão detectado, mas sem sugestão disponível")
-        else:
-            st.info("📊 Nenhum padrão de colunas repetido encontrado")
-    else:
-        st.warning("⚠️ Dados insuficientes para análise completa de colunas")
+if padroes_colunas:
+    st.success(f"✅ {len(padroes_colunas)} padrões de colunas detectados!")
+    
+    # Agrupa sugestões por tipo
+    sugestoes_agrupadas = {}
+    for padrao in padroes_colunas:
+        chave = padrao["sugestao"]
+        if chave not in sugestoes_agrupadas:
+            sugestoes_agrupadas[chave] = []
+        sugestoes_agrupadas[chave].append(padrao)
+    
+    # Exibe sugestões consolidadas
+    st.subheader("🎯 Sugestões de Entrada")
+    for sugestao, padroes in sugestoes_agrupadas.items():
+        st.write(f"**{sugestao}** (baseado em {len(padroes)} padrões detectados)")
+    
+    # Mostra detalhes dos padrões detectados
+    with st.expander("📝 Detalhes dos Padrões Detectados"):
+        for i, padrao in enumerate(padroes_colunas, 1):
+            st.write(f"**Padrão {i}:**")
+            st.write(f"- Coluna {padrao['coluna_ref']+1} ≈ Coluna {padrao['coluna_atual']+1}")
+            st.write(f"- Após coluna {padrao['coluna_ref']+1} veio: {padrao['elemento_referencia']}")
+            st.write(f"- Sugestão: {padrao['sugestao']}")
+            st.markdown("---")
 else:
-    st.warning(f"⚠️ Registre 3 linhas completas de {RESULTADOS_POR_LINHA} jogadas para análise de colunas")
+    if len(linhas_completas) >= 3:
+        st.info("ℹ️ Nenhum padrão de reescrita entre colunas foi detectado")
+    else:
+        st.warning(f"⚠️ Registre 3 linhas completas de {RESULTADOS_POR_LINHA} jogadas para ativar a análise")
 
-# Visualização das colunas verticais com cores
-if len(linhas_para_colunas) >= 3:
+# Visualização das colunas verticais
+if len(linhas_completas) >= 3:
     st.markdown("---")
     st.subheader("🧱 Visualização das Colunas (Últimas 3 Linhas)")
-
-    # Cria uma matriz para visualização
-    matriz_exibicao = linhas_para_colunas[:3]
-    colunas_exibicao = list(zip(*matriz_exibicao))
     
-    # Cria colunas para exibição (8 colunas)
+    matriz_3x8 = linhas_completas[:3]
+    colunas = list(zip(*matriz_3x8))
+    
+    # Cria colunas para exibição
     cols = st.columns(RESULTADOS_POR_LINHA)
     
-    for i, coluna in enumerate(colunas_exibicao):
+    for i, coluna in enumerate(colunas):
         with cols[i]:
-            st.markdown(f"**Coluna {i+1}**")
+            # Destaca colunas com padrões detectados
+            em_padrao = any(p['coluna_ref'] == i or p['coluna_atual'] == i for p in padroes_colunas)
+            borda = "4px solid #4CAF50" if em_padrao else "1px solid #ccc"
+            
+            st.markdown(f"<div style='border: {borda}; border-radius: 5px; padding: 5px; margin-bottom: 10px;'>"
+                        f"<b>Coluna {i+1}</b>", unsafe_allow_html=True)
+            
             for elemento in coluna:
-                # Cores de fundo
                 bg_color = "#ffcccc" if elemento == "🔴" else "#cce0ff" if elemento == "🔵" else "#ffffcc"
                 st.markdown(
-                    f'<div style="background-color: {bg_color}; padding: 10px; margin: 5px; border-radius: 5px; text-align: center;">{elemento}</div>',
+                    f'<div style="background-color: {bg_color}; padding: 8px; margin: 2px; border-radius: 5px; text-align: center;">{elemento}</div>',
                     unsafe_allow_html=True
                 )
 
