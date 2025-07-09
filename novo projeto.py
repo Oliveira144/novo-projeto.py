@@ -1,5 +1,6 @@
 import streamlit as st
 from collections import Counter, defaultdict
+import numpy as np
 
 # Inicializa histórico
 if "historico" not in st.session_state:
@@ -14,30 +15,40 @@ MAX_JOGADAS = RESULTADOS_POR_LINHA * MAX_LINHAS_HISTORICO
 def cores_opostas(c1, c2):
     return (c1 == "🔴" and c2 == "🔵") or (c1 == "🔵" and c2 == "🔴")
 
-def padrao_reescrito(linha1, linha2):
+def padrao_reescrito(linha1, linha2, tolerancia=1):
+    """Detecta padrão de reescrita com tolerância a variações"""
     if len(linha1) != len(linha2):
         return False
+    
+    diferencas = 0
     for a, b in zip(linha1, linha2):
         if a == "🟡" or b == "🟡":
             continue
         if not cores_opostas(a, b):
-            return False
-    return True
+            diferencas += 1
+            if diferencas > tolerancia:
+                return False
+    return diferencas <= tolerancia
 
-def colunas_semelhantes(c1, c2):
+def colunas_semelhantes(c1, c2, tolerancia=1):
+    """Compara colunas com tolerância a variações"""
     if len(c1) != len(c2):
         return False
+    
+    diferencas = 0
     for a, b in zip(c1, c2):
         if a == "🟡" or b == "🟡":
             continue
         if not cores_opostas(a, b):
-            return False
-    return True
+            diferencas += 1
+            if diferencas > tolerancia:
+                return False
+    return diferencas <= tolerancia
 
 def inserir(cor):
-    if len(st.session_state.historico) < MAX_JOGADAS:
-        st.session_state.historico.insert(0, cor)
-    st.session_state.historico = st.session_state.historico[:MAX_JOGADAS]
+    st.session_state.historico.insert(0, cor)
+    if len(st.session_state.historico) > MAX_JOGADAS:
+        st.session_state.historico = st.session_state.historico[:MAX_JOGADAS]
 
 def desfazer():
     if st.session_state.historico:
@@ -45,6 +56,61 @@ def desfazer():
 
 def limpar():
     st.session_state.historico.clear()
+
+# Algoritmo avançado de varredura de colunas
+def analisar_colunas(linhas_completas):
+    """Realiza varredura completa em todas as colunas para identificar padrões"""
+    padroes_detectados = []
+    
+    if len(linhas_completas) < 3:
+        return padroes_detectados
+    
+    # Cria matriz de colunas
+    matriz = linhas_completas[:3]
+    colunas = list(zip(*matriz))
+    total_colunas = len(colunas)
+    
+    # Lista para armazenar padrões encontrados
+    padroes = []
+    
+    # Varre todas as combinações possíveis de colunas
+    for j in range(total_colunas):
+        for i in range(j):
+            if colunas_semelhantes(colunas[i], colunas[j]):
+                padroes.append((i, j))
+    
+    # Gera sugestões baseadas nos padrões encontrados
+    for i, j in padroes:
+        # Verifica se há coluna após a coluna de referência
+        if i + 1 < total_colunas:
+            coluna_apos_ref = colunas[i + 1]
+            
+            # Usa o elemento mais comum na coluna seguinte
+            contagem = Counter(coluna_apos_ref)
+            if contagem:
+                elemento_comum = contagem.most_common(1)[0][0]
+                
+                # Sugestão baseada no elemento mais comum
+                if elemento_comum == "🔴":
+                    sugestao = "🔵"
+                elif elemento_comum == "🔵":
+                    sugestao = "🔴"
+                else:
+                    sugestao = "🟡"
+                
+                # Calcula confiança baseada na consistência
+                confianca = len([k for k in coluna_apos_ref if k == elemento_comum]) / len(coluna_apos_ref)
+                
+                padroes_detectados.append({
+                    "coluna_ref": i,
+                    "coluna_atual": j,
+                    "coluna_apos_ref": i + 1,
+                    "sugestao": sugestao,
+                    "elemento_referencia": elemento_comum,
+                    "confianca": confianca
+                })
+    
+    return padroes_detectados
 
 # Configuração visual
 st.set_page_config(page_title="FS Análise Pro", layout="centered")
@@ -78,64 +144,7 @@ for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
 # Filtra linhas completas
 linhas_completas = [l for l in linhas if len(l) == RESULTADOS_POR_LINHA]
 
-# =================================================================
-# NOVO ALGORITMO DE VARREDURA DE COLUNAS PARA IDENTIFICAÇÃO DE PADRÕES
-# =================================================================
-
-def analisar_colunas(linhas_completas):
-    """Realiza varredura completa em todas as colunas para identificar padrões"""
-    padroes_detectados = []
-    
-    if len(linhas_completas) < 3:
-        return padroes_detectados
-    
-    # Cria matriz de colunas
-    matriz_3x8 = linhas_completas[:3]
-    colunas = list(zip(*matriz_3x8))
-    
-    # Dicionário para armazenar padrões encontrados
-    padroes = defaultdict(list)
-    
-    # Varre todas as combinações possíveis de colunas
-    for j in range(len(colunas)):
-        for i in range(j):
-            if colunas_semelhantes(colunas[i], colunas[j]):
-                # Registra o padrão encontrado
-                padroes[j].append({
-                    "coluna_ref": i,
-                    "coluna_atual": j,
-                    "similaridade": True
-                })
-    
-    # Gera sugestões baseadas nos padrões encontrados
-    for coluna, padroes_coluna in padroes.items():
-        for padrao in padroes_coluna:
-            coluna_ref = padrao["coluna_ref"]
-            
-            # Verifica se há uma coluna após a coluna de referência
-            if coluna_ref + 1 < len(colunas):
-                coluna_apos_ref = colunas[coluna_ref + 1]
-                
-                # Sugestão baseada no primeiro elemento da coluna após referência
-                primeiro_elemento = coluna_apos_ref[0]
-                if primeiro_elemento == "🔴":
-                    sugestao = "🔵"
-                elif primeiro_elemento == "🔵":
-                    sugestao = "🔴"
-                else:
-                    sugestao = "🟡"
-                
-                padroes_detectados.append({
-                    "coluna_ref": coluna_ref,
-                    "coluna_atual": coluna,
-                    "coluna_apos_ref": coluna_ref + 1,
-                    "sugestao": sugestao,
-                    "elemento_referencia": primeiro_elemento
-                })
-    
-    return padroes_detectados
-
-# Executa a análise avançada
+# Executa análises
 padroes_colunas = analisar_colunas(linhas_completas)
 
 # =================================================================
@@ -192,25 +201,30 @@ st.subheader("🔍 Varredura Avançada de Colunas")
 if padroes_colunas:
     st.success(f"✅ {len(padroes_colunas)} padrões de colunas detectados!")
     
-    # Agrupa sugestões por tipo
-    sugestoes_agrupadas = {}
+    # Agrupa sugestões por tipo com confiança
+    sugestoes_agrupadas = defaultdict(list)
     for padrao in padroes_colunas:
-        chave = padrao["sugestao"]
-        if chave not in sugestoes_agrupadas:
-            sugestoes_agrupadas[chave] = []
-        sugestoes_agrupadas[chave].append(padrao)
+        sugestoes_agrupadas[padrao["sugestao"]].append(padrao["confianca"])
     
-    # Exibe sugestões consolidadas
+    # Exibe sugestões consolidadas com porcentagem de confiança
     st.subheader("🎯 Sugestões de Entrada")
-    for sugestao, padroes in sugestoes_agrupadas.items():
-        st.write(f"**{sugestao}** (baseado em {len(padroes)} padrões detectados)")
+    
+    if sugestoes_agrupadas:
+        for sugestao, confiancas in sugestoes_agrupadas.items():
+            confianca_media = np.mean(confiancas) * 100
+            st.metric(
+                label=f"Jogar {sugestao}", 
+                value=f"{confianca_media:.1f}% de confiança",
+                help=f"Baseado em {len(confiancas)} padrões detectados"
+            )
     
     # Mostra detalhes dos padrões detectados
     with st.expander("📝 Detalhes dos Padrões Detectados"):
         for i, padrao in enumerate(padroes_colunas, 1):
             st.write(f"**Padrão {i}:**")
-            st.write(f"- Coluna {padrao['coluna_ref']+1} ≈ Coluna {padrao['coluna_atual']+1}")
-            st.write(f"- Após coluna {padrao['coluna_ref']+1} veio: {padrao['elemento_referencia']}")
+            st.write(f"- Coluna de referência: {padrao['coluna_ref']+1}")
+            st.write(f"- Coluna atual: {padrao['coluna_atual']+1}")
+            st.write(f"- Após referência veio: {padrao['elemento_referencia']} (confiança: {padrao['confianca']*100:.1f}%)")
             st.write(f"- Sugestão: {padrao['sugestao']}")
             st.markdown("---")
 else:
@@ -235,9 +249,10 @@ if len(linhas_completas) >= 3:
             # Destaca colunas com padrões detectados
             em_padrao = any(p['coluna_ref'] == i or p['coluna_atual'] == i for p in padroes_colunas)
             borda = "4px solid #4CAF50" if em_padrao else "1px solid #ccc"
+            bg_title = "#e8f5e9" if em_padrao else "#f5f5f5"
             
-            st.markdown(f"<div style='border: {borda}; border-radius: 5px; padding: 5px; margin-bottom: 10px;'>"
-                        f"<b>Coluna {i+1}</b>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color: {bg_title}; border: {borda}; border-radius: 5px; padding: 5px; margin-bottom: 10px;'>"
+                        f"<b>Coluna {i+1}</b></div>", unsafe_allow_html=True)
             
             for elemento in coluna:
                 bg_color = "#ffcccc" if elemento == "🔴" else "#cce0ff" if elemento == "🔵" else "#ffffcc"
@@ -270,3 +285,18 @@ if len(linhas_completas) > 0:
             st.metric("🟡 Empate", f"{percent_empate:.1f}%")
 else:
     st.info("Registre jogadas para ver as tendências")
+
+# Botão para exportar dados
+st.markdown("---")
+if st.button("💾 Exportar Dados para Análise"):
+    dados = {
+        "historico": st.session_state.historico,
+        "linhas_completas": linhas_completas,
+        "padroes_detectados": padroes_colunas
+    }
+    st.download_button(
+        label="Baixar Dados",
+        data=str(dados),
+        file_name="fs_analise_dados.txt",
+        mime="text/plain"
+    )
