@@ -20,6 +20,10 @@ def padrao_reescrito(linha1, linha2):
     return True
 
 def colunas_semelhantes(c1, c2):
+    # CORREÇÃO: Verifica tamanho igual das colunas
+    if len(c1) != len(c2):
+        return False
+        
     for a, b in zip(c1, c2):
         if a == "🟡" or b == "🟡":
             continue
@@ -28,7 +32,9 @@ def colunas_semelhantes(c1, c2):
     return True
 
 def inserir(cor):
-    st.session_state.historico.insert(0, cor)
+    # MELHORIA: Impede inserção além do limite
+    if len(st.session_state.historico) < 27:
+        st.session_state.historico.insert(0, cor)
     # Mantém apenas os últimos 27 resultados
     st.session_state.historico = st.session_state.historico[:27]
 
@@ -61,18 +67,18 @@ with col4:
 with col5:
     if st.button("🧹 Limpar", use_container_width=True): limpar()
 
-# Exibir histórico (máximo 27 jogadas): mais recente no topo, esquerda → direita
+# Exibir histórico (máximo 27 jogadas)
 st.markdown("---")
 st.subheader("📋 Histórico de Jogadas (últimas 27, mais recentes no topo)")
 
-historico_limitado = st.session_state.historico[:27]  # Garante 27 ou menos
+historico_limitado = st.session_state.historico[:27]
 
 linhas = []
 for i in range(0, len(historico_limitado), 9):
     linha = historico_limitado[i:i+9]
     linhas.append(linha)
 
-linhas_exibidas = linhas[::-1]  # Mais recentes primeiro (no topo)
+linhas_exibidas = linhas[::-1]  # Mais recentes primeiro
 
 for idx, linha in enumerate(linhas_exibidas):
     st.markdown(f"**Linha {idx+1}:** " + " ".join(linha))
@@ -95,11 +101,19 @@ if len(linhas_validas) >= 2:
 
     if padrao_reescrito(linha1, linha2):
         ultima_jogada = linha1[-1]
-        jogada_sugerida = "🔵" if ultima_jogada == "🔴" else "🔴" if ultima_jogada == "🔵" else "❓"
+        
+        # MELHORIA: Sugestão melhorada com tratamento de empate
+        if ultima_jogada == "🔴":
+            jogada_sugerida = "🔵"
+        elif ultima_jogada == "🔵":
+            jogada_sugerida = "🔴"
+        else:
+            jogada_sugerida = "🟡"  # Empate
+            
         st.success(f"""
         🔁 **Padrão reescrito com inversão cromática detectado!**
         \nÚltima jogada: {ultima_jogada}
-        \n🎯 **Sugestão:** Jogar {jogada_sugerida} (oposto à última)
+        \n🎯 **Sugestão:** Jogar {jogada_sugerida}
         """)
     else:
         st.info("⏳ Nenhum padrão reescrito identificado entre as duas últimas linhas completas.")
@@ -126,36 +140,62 @@ if len(historico_limitado) == 27:
     if colunas_semelhantes(ref_coluna_antiga, nova_coluna):
         coluna_apos_ref = colunas[4]
         proxima_sugestao = coluna_apos_ref[0]
-        sugestao_convertida = "🔵" if proxima_sugestao == "🔴" else "🔴" if proxima_sugestao == "🔵" else "❓"
+        
+        # MELHORIA: Sugestão com tratamento de empate
+        if proxima_sugestao == "🔴":
+            sugestao_convertida = "🔵"
+        elif proxima_sugestao == "🔵":
+            sugestao_convertida = "🔴"
+        else:
+            sugestao_convertida = "🟡"  # Empate
 
         st.success(f"""
         🔂 Estrutura de colunas repetida com troca de cores detectada!
         \n📌 Coluna antiga (posição 4) ≈ Nova coluna (posição 1)
-        \n🎯 Sugestão baseada na coluna que seguiu a referência anterior:
-        **{sugestao_convertida}**
+        \n💡 Padrão esperado: Após a coluna 4 veio **{proxima_sugestao}**
+        \n🎯 **Sugestão:** Jogar {sugestao_convertida}
         """)
     else:
         st.info("📊 Nenhum padrão repetido de colunas encontrado nas últimas 27 jogadas.")
 else:
     st.warning("⚠️ Registre exatamente 27 jogadas para ativar a análise por colunas verticais.")
 
-# Visualização das colunas verticais
+# Visualização das colunas verticais com cores
 if len(historico_limitado) == 27:
     st.subheader("🧱 Visualização das Colunas Verticais (3x9)")
 
+    # MELHORIA: Visualização com cores de fundo
     col_container = st.container()
     col1, col2, col3, col4, col5, col6, col7, col8, col9 = col_container.columns(9)
     colunas_texto = list(zip(*linhas_3x9))
 
     for i, coluna in enumerate(colunas_texto):
-        texto = f"**Coluna {i+1}**\n" + "\n".join(coluna)
+        # Cria string formatada com cores
+        elementos_html = []
+        for elemento in coluna:
+            if elemento == "🔴":
+                bg_color = "#ffcccc"  # Vermelho claro
+            elif elemento == "🔵":
+                bg_color = "#cce0ff"  # Azul claro
+            else:
+                bg_color = "#ffffcc"  # Amarelo claro
+                
+            elementos_html.append(
+                f'<div style="background-color: {bg_color};'
+                f'padding: 8px; margin: 2px; border-radius: 5px;'
+                f'text-align: center;">{elemento}</div>'
+            )
+        
+        texto_html = f"<b>Coluna {i+1}</b><br>" + "<br>".join(elementos_html)
+        
+        # Renderiza na coluna correspondente
         match i:
-            case 0: col1.markdown(texto)
-            case 1: col2.markdown(texto)
-            case 2: col3.markdown(texto)
-            case 3: col4.markdown(texto)
-            case 4: col5.markdown(texto)
-            case 5: col6.markdown(texto)
-            case 6: col7.markdown(texto)
-            case 7: col8.markdown(texto)
-            case 8: col9.markdown(texto)
+            case 0: col1.markdown(texto_html, unsafe_allow_html=True)
+            case 1: col2.markdown(texto_html, unsafe_allow_html=True)
+            case 2: col3.markdown(texto_html, unsafe_allow_html=True)
+            case 3: col4.markdown(texto_html, unsafe_allow_html=True)
+            case 4: col5.markdown(texto_html, unsafe_allow_html=True)
+            case 5: col6.markdown(texto_html, unsafe_allow_html=True)
+            case 6: col7.markdown(texto_html, unsafe_allow_html=True)
+            case 7: col8.markdown(texto_html, unsafe_allow_html=True)
+            case 8: col9.markdown(texto_html, unsafe_allow_html=True)
