@@ -1,6 +1,5 @@
 import streamlit as st
 from collections import Counter
-import numpy as np
 
 # Inicializa histórico
 if "historico" not in st.session_state:
@@ -32,16 +31,18 @@ def detectar_padrao_reescrita(historico):
     linhas_completas = [linha for linha in historico if len(linha) == RESULTADOS_POR_LINHA]
     
     for i in range(1, len(linhas_completas)):
-        linha_atual = linhas_completas[i-1]  # Linha mais recente (índice 0)
-        linha_anterior = linhas_completas[i]   # Linha anterior (índice 1)
+        linha_atual = linhas_completas[i-1]  # Linha mais recente
+        linha_anterior = linhas_completas[i]   # Linha anterior
         
         if padrao_reescrito(linha_atual, linha_anterior):
-            posicao_reescrita = len(linha_atual)  # Posição atual da reescrita
+            # Determinar sugestão baseada no último elemento
+            ultimo_elemento = linha_atual[-1]
+            sugestao = "🔵" if ultimo_elemento == "🔴" else "🔴" if ultimo_elemento == "🔵" else "🟡"
+            
             padroes.append({
                 "linha_atual": linha_atual,
                 "linha_anterior": linha_anterior,
-                "posicao": posicao_reescrita,
-                "sugestao": "🔵" if linha_atual[-1] == "🔴" else "🔴" if linha_atual[-1] == "🔵" else "🟡"
+                "sugestao": sugestao
             })
     
     return padroes
@@ -102,12 +103,10 @@ with st.container(height=500):
         if em_padrao:
             # Encontrar o padrão completo correspondente
             padrao_correspondente = next((p for p in padroes_reescrita if p["linha_atual"] == linha), None)
-            linha_anterior = padrao_correspondente["linha_anterior"]
             
             # Exibir com destaque especial
             st.markdown(f"<div style='background-color: #e6f7ff; padding: 10px; border-radius: 5px; border-left: 4px solid #1890ff; margin-bottom: 10px;'>"
                         f"<b>Linha {idx} (Padrão Detectado):</b> " + " ".join(linha) +
-                        f"<br><b>Linha {idx+1}:</b> " + " ".join(linha_anterior) +
                         f"<br>🎯 <b>Sugestão:</b> {padrao_correspondente['sugestao']}</div>", 
                         unsafe_allow_html=True)
         else:
@@ -118,7 +117,7 @@ st.markdown("---")
 st.subheader("🧠 Detecção de Padrão de Reescreta Atual")
 
 if len(linhas) >= 2:
-    linha_atual = linhas[0]  # Linha mais recente (primeira linha)
+    linha_atual = linhas[0]  # Linha mais recente
     linha_anterior = linhas[1]  # Segunda linha mais recente
     
     # Verificar se temos linhas completas para análise
@@ -143,7 +142,11 @@ if len(linhas) >= 2:
                 with cols[i]:
                     st.markdown(f"**Posição {i+1}**")
                     st.markdown(f"{a} → {b}")
-                    st.markdown("✅" if cores_opostas(a, b) or "🟡" in [a, b] else "❌")
+                    # Mostrar ✓ se cores opostas ou ✗ se iguais
+                    if a == "🟡" or b == "🟡":
+                        st.markdown("➖")
+                    else:
+                        st.markdown("✓" if cores_opostas(a, b) else "✗")
         else:
             st.info("⏳ Ainda não foi detectado um padrão de reescrita entre a Linha 1 e Linha 2.")
     else:
@@ -157,11 +160,7 @@ if padroes_reescrita:
     st.subheader("📈 Estatísticas de Padrões de Reescreta")
     
     total_padroes = len(padroes_reescrita)
-    sugestoes_corretas = sum(1 for p in padroes_reescrita 
-                            if p["sugestao"] == p["linha_atual"][0] if len(p["linha_atual"]) > 0 else False)
-    
     st.write(f"**Total de padrões detectados:** {total_padroes}")
-    st.write(f"**Taxa de acerto das sugestões:** {sugestoes_corretas/total_padroes:.0%}" if total_padroes > 0 else "N/A")
     
     # Mostrar últimos padrões detectados
     st.write("**Últimos padrões detectados:**")
@@ -179,17 +178,23 @@ if padroes_reescrita:
     st.markdown("---")
     st.subheader("🔍 Visualização de Padrões de Reescreta")
     
-    # Agrupar padrões por linha de referência
-    padroes_por_linha = {}
-    for padrao in padroes_reescrita:
-        chave = tuple(padrao["linha_anterior"])
-        if chave not in padroes_por_linha:
-            padroes_por_linha[chave] = []
-        padroes_por_linha[chave].append(padrao)
+    # Selecionar o último padrão detectado
+    ultimo_padrao = padroes_reescrita[0]
     
-    # Exibir os padrões mais comuns
-    st.write("**Padrões mais frequentes:**")
-    for linha_ref, padroes in list(padroes_por_linha.items())[:3]:
-        st.write(f"- Linha de referência: {' '.join(linha_ref)}")
-        st.write(f"  Padrões detectados: {len(padroes)}")
-        st.write(f"  Sugestões mais comuns: {Counter(p['sugestao'] for p in padroes).most_common(1)[0][0]}")
+    st.write("**Comparação de Linhas:**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Linha Atual**")
+        for elemento in ultimo_padrao["linha_atual"]:
+            bg_color = "#ffcccc" if elemento == "🔴" else "#cce0ff" if elemento == "🔵" else "#ffffcc"
+            st.markdown(f'<div style="background-color: {bg_color}; padding: 10px; margin: 5px; border-radius: 5px; text-align: center;">{elemento}</div>', 
+                        unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**Linha Anterior**")
+        for elemento in ultimo_padrao["linha_anterior"]:
+            bg_color = "#ffcccc" if elemento == "🔴" else "#cce0ff" if elemento == "🔵" else "#ffffcc"
+            st.markdown(f'<div style="background-color: {bg_color}; padding: 10px; margin: 5px; border-radius: 5px; text-align: center;">{elemento}</div>', 
+                        unsafe_allow_html=True)
+    
+    st.markdown(f"**Sugestão Gerada:** {ultimo_padrao['sugestao']}")
