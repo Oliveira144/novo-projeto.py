@@ -1,5 +1,6 @@
 import streamlit as st
 from collections import Counter
+import numpy as np
 
 # Inicializa histórico
 if "historico" not in st.session_state:
@@ -15,6 +16,7 @@ def cores_opostas(c1, c2):
     return (c1 == "🔴" and c2 == "🔵") or (c1 == "🔵" and c2 == "🔴")
 
 def padrao_reescrito(linha1, linha2):
+    """Detecta se linha1 é uma reescrita de linha2 com cores invertidas"""
     if len(linha1) != len(linha2):
         return False
     for a, b in zip(linha1, linha2):
@@ -24,15 +26,25 @@ def padrao_reescrito(linha1, linha2):
             return False
     return True
 
-def colunas_semelhantes(c1, c2):
-    if len(c1) != len(c2):
-        return False
-    for a, b in zip(c1, c2):
-        if a == "🟡" or b == "🟡":
-            continue
-        if not cores_opostas(a, b):
-            return False
-    return True
+def detectar_padrao_reescrita(historico):
+    """Analisa o histórico para encontrar padrões de reescrita entre linhas"""
+    padroes = []
+    linhas_completas = [linha for linha in historico if len(linha) == RESULTADOS_POR_LINHA]
+    
+    for i in range(1, len(linhas_completas)):
+        linha_atual = linhas_completas[i-1]  # Linha mais recente (índice 0)
+        linha_anterior = linhas_completas[i]   # Linha anterior (índice 1)
+        
+        if padrao_reescrito(linha_atual, linha_anterior):
+            posicao_reescrita = len(linha_atual)  # Posição atual da reescrita
+            padroes.append({
+                "linha_atual": linha_atual,
+                "linha_anterior": linha_anterior,
+                "posicao": posicao_reescrita,
+                "sugestao": "🔵" if linha_atual[-1] == "🔴" else "🔴" if linha_atual[-1] == "🔵" else "🟡"
+            })
+    
+    return padroes
 
 def inserir(cor):
     st.session_state.historico.insert(0, cor)
@@ -62,36 +74,99 @@ with col3:
     if st.button("🟡 Empate", use_container_width=True): inserir("🟡")
 
 # Controles
-col4, col5, col6 = st.columns(3)
+col4, col5 = st.columns(2)
 with col4:
     if st.button("↩️ Desfazer", use_container_width=True): desfazer()
 with col5:
     if st.button("🧹 Limpar", use_container_width=True): limpar()
-with col6:
-    # Botão para mostrar/ocultar histórico completo
-    mostrar_historico_completo = st.toggle("Mostrar histórico completo", value=True)
 
-# Exibir histórico
-st.markdown("---")
-st.subheader(f"📋 Histórico de Jogadas (últimas {MAX_LINHAS_HISTORICO} linhas)")
-
+# Processar histórico
 historico_limitado = st.session_state.historico[:MAX_JOGADAS]
 linhas = []
 for i in range(0, len(historico_limitado), RESULTADOS_POR_LINHA):
     linha = historico_limitado[i:i+RESULTADOS_POR_LINHA]
     linhas.append(linha)
 
-# Exibe apenas as últimas N linhas ou todo o histórico
-if mostrar_historico_completo:
-    linhas_exibidas = linhas[:MAX_LINHAS_HISTORICO]
-else:
-    # Mostra apenas as últimas 5 linhas por padrão
-    linhas_exibidas = linhas[:5] 
+# Detectar padrões de reescrita
+padroes_reescrita = detectar_padrao_reescrita(linhas)
 
-# Container com rolagem
-with st.container(height=400):
-    for idx, linha in enumerate(linhas_exibidas, 1):
-        st.markdown(f"**Linha {idx}:** " + " ".join(linha))
+# Exibir histórico com destaque para padrões
+st.markdown("---")
+st.subheader(f"📋 Histórico de Jogadas (Padrões Detectados)")
+
+with st.container(height=500):
+    for idx, linha in enumerate(linhas, 1):
+        # Verificar se esta linha está em um padrão detectado
+        em_padrao = any(linha == padrao["linha_atual"] for padrao in padroes_reescrita)
+        
+        if em_padrao:
+            # Encontrar o padrão completo correspondente
+            padrao_correspondente = next((p for p in padroes_reescrita if p["linha_atual"] == linha), None)
+            linha_anterior = padrao_correspondente["linha_anterior"]
+            
+            # Exibir com destaque especial
+            st.markdown(f"<div style='background-color: #e6f7ff; padding: 10px; border-radius: 5px; border-left: 4px solid #1890ff; margin-bottom: 10px;'>"
+                        f"<b>Linha {idx} (Padrão Detectado):</b> " + " ".join(linha) +
+                        f"<br><b>Linha {idx+1}:</b> " + " ".join(linha_anterior) +
+                        f"<br>🎯 <b>Sugestão:</b> {padrao_correspondente['sugestao']}</div>", 
+                        unsafe_allow_html=True)
+        else:
+            st.markdown(f"**Linha {idx}:** " + " ".join(linha))
+
+# Análise de padrão reescrito em tempo real
+st.markdown("---")
+st.subheader("🧠 Detecção de Padrão de Reescreta Atual")
+
+if len(linhas) >= 2:
+    linha_atual = linhas[0]  # Linha mais recente (primeira linha)
+    linha_anterior = linhas[1]  # Segunda linha mais recente
+    
+    # Verificar se temos linhas completas para análise
+    if len(linha_atual) == RESULTADOS_POR_LINHA and len(linha_anterior) == RESULTADOS_POR_LINHA:
+        if padrao_reescrito(linha_atual, linha_anterior):
+            # Determinar sugestão com base no último elemento da linha atual
+            ultimo_elemento = linha_atual[-1]
+            sugestao = "🔵" if ultimo_elemento == "🔴" else "🔴" if ultimo_elemento == "🔵" else "🟡"
+            
+            st.success(f"""
+            🔁 **Padrão de reescrita detectado entre Linha 1 e Linha 2!**
+            
+            **Linha 1 (Atual):** {" ".join(linha_atual)}
+            **Linha 2 (Anterior):** {" ".join(linha_anterior)}
+            
+            🎯 **Sugestão de Entrada:** {sugestao}
+            """)
+            
+            # Mostrar visualização do padrão
+            cols = st.columns(RESULTADOS_POR_LINHA)
+            for i, (a, b) in enumerate(zip(linha_atual, linha_anterior)):
+                with cols[i]:
+                    st.markdown(f"**Posição {i+1}**")
+                    st.markdown(f"{a} → {b}")
+                    st.markdown("✅" if cores_opostas(a, b) or "🟡" in [a, b] else "❌")
+        else:
+            st.info("⏳ Ainda não foi detectado um padrão de reescrita entre a Linha 1 e Linha 2.")
+    else:
+        st.warning(f"⚠️ Complete ambas as linhas com {RESULTADOS_POR_LINHA} jogadas para análise")
+else:
+    st.warning("⚠️ Registre pelo menos 2 linhas para análise de padrões")
+
+# Estatísticas de padrões detectados
+if padroes_reescrita:
+    st.markdown("---")
+    st.subheader("📈 Estatísticas de Padrões de Reescreta")
+    
+    total_padroes = len(padroes_reescrita)
+    sugestoes_corretas = sum(1 for p in padroes_reescrita 
+                            if p["sugestao"] == p["linha_atual"][0] if len(p["linha_atual"]) > 0 else False)
+    
+    st.write(f"**Total de padrões detectados:** {total_padroes}")
+    st.write(f"**Taxa de acerto das sugestões:** {sugestoes_corretas/total_padroes:.0%}" if total_padroes > 0 else "N/A")
+    
+    # Mostrar últimos padrões detectados
+    st.write("**Últimos padrões detectados:**")
+    for padrao in padroes_reescrita[:3]:
+        st.caption(f"- Linha atual: {' '.join(padrao['linha_atual'])} | Sugestão: {padrao['sugestao']}")
 
 # Frequência
 st.markdown("---")
@@ -99,121 +174,22 @@ st.subheader("📊 Frequência de Cores")
 contagem = Counter(historico_limitado)
 st.write(f"🔴 Casa: {contagem['🔴']} | 🔵 Visitante: {contagem['🔵']} | 🟡 Empate: {contagem['🟡']}")
 
-# Análise por linhas (padrão reescrito) - RESTAURADA
-st.markdown("---")
-st.subheader("🧠 Detecção de Padrão Reescrito")
-
-linhas_completas = [l for l in linhas if len(l) == RESULTADOS_POR_LINHA]
-
-if len(linhas_completas) >= 2:
-    linha_recente = linhas_completas[0]
-    linha_anterior = linhas_completas[1]
-
-    if padrao_reescrito(linha_recente, linha_anterior):
-        ultima_jogada = linha_recente[-1]
-        if ultima_jogada == "🔴":
-            jogada_sugerida = "🔵"
-        elif ultima_jogada == "🔵":
-            jogada_sugerida = "🔴"
-        else:
-            jogada_sugerida = "🟡"
-            
-        st.success(f"""
-        🔁 **Padrão reescrito com inversão cromática detectado!**
-        \nÚltima jogada: {ultima_jogada}
-        \n🎯 **Sugestão:** Jogar {jogada_sugerida}
-        """)
-    else:
-        st.info("⏳ Nenhum padrão reescrito identificado entre as duas últimas linhas completas.")
-else:
-    st.warning(f"⚠️ Registre pelo menos 2 linhas completas de {RESULTADOS_POR_LINHA} jogadas para ativar a análise.")
-
-# Análise por colunas verticais - RESTAURADA E MELHORADA
-st.markdown("---")
-st.subheader("🧬 Análise por Colunas Verticais")
-
-# Seleciona as últimas 3 linhas completas
-linhas_para_colunas = [l for l in linhas_completas[:3] if len(l) == RESULTADOS_POR_LINHA]
-
-if len(linhas_para_colunas) >= 3:
-    matriz_3x7 = linhas_para_colunas[:3]
-    colunas = list(zip(*matriz_3x7))
-
-    # Verificação de segurança
-    if len(colunas) >= 5:
-        ref_coluna_antiga = colunas[3]
-        nova_coluna = colunas[0]
-
-        if colunas_semelhantes(ref_coluna_antiga, nova_coluna):
-            coluna_apos_ref = colunas[4]
-            if coluna_apos_ref: 
-                proxima_sugestao = coluna_apos_ref[0]
-                if proxima_sugestao == "🔴":
-                    sugestao_convertida = "🔵"
-                elif proxima_sugestao == "🔵":
-                    sugestao_convertida = "🔴"
-                else:
-                    sugestao_convertida = "🟡"
-
-                st.success(f"""
-                🔂 Estrutura de colunas repetida detectada!
-                \n📌 Padrão: Coluna 4 ≈ Coluna 1
-                \n💡 Após coluna 4 veio: **{proxima_sugestao}**
-                \n🎯 **Sugestão:** Jogar {sugestao_convertida}
-                """)
-            else:
-                st.info("🔍 Padrão detectado, mas sem sugestão disponível")
-        else:
-            st.info("📊 Nenhum padrão de colunas repetido encontrado")
-    else:
-        st.warning("⚠️ Dados insuficientes para análise completa de colunas")
-else:
-    st.warning(f"⚠️ Registre 3 linhas completas de {RESULTADOS_POR_LINHA} jogadas para análise de colunas")
-
-# Visualização das colunas verticais - RESTAURADA
-if len(linhas_para_colunas) >= 3:
+# Visualização avançada de padrões
+if padroes_reescrita:
     st.markdown("---")
-    st.subheader("🧱 Visualização das Colunas (Últimas 3 Linhas)")
-
-    # Cria uma matriz para visualização
-    matriz_exibicao = linhas_para_colunas[:3]
-    colunas_exibicao = list(zip(*matriz_exibicao))
+    st.subheader("🔍 Visualização de Padrões de Reescreta")
     
-    # Cria colunas para exibição
-    cols = st.columns(len(colunas_exibicao))
+    # Agrupar padrões por linha de referência
+    padroes_por_linha = {}
+    for padrao in padroes_reescrita:
+        chave = tuple(padrao["linha_anterior"])
+        if chave not in padroes_por_linha:
+            padroes_por_linha[chave] = []
+        padroes_por_linha[chave].append(padrao)
     
-    for i, coluna in enumerate(colunas_exibicao):
-        with cols[i]:
-            st.markdown(f"**Coluna {i+1}**")
-            for elemento in coluna:
-                # Cores de fundo
-                bg_color = "#ffcccc" if elemento == "🔴" else "#cce0ff" if elemento == "🔵" else "#ffffcc"
-                st.markdown(
-                    f'<div style="background-color: {bg_color}; padding: 10px; margin: 5px; border-radius: 5px; text-align: center;">{elemento}</div>',
-                    unsafe_allow_html=True
-                )
-
-# Botão para análise de tendências - NOVA FUNCIONALIDADE
-st.markdown("---")
-st.subheader("📈 Análise de Tendências")
-
-if len(linhas_completas) > 0:
-    # Calcula a porcentagem de cada cor nas últimas 5 linhas
-    ultimas_jogadas = [item for sublist in linhas_completas[:5] for item in sublist]
-    if ultimas_jogadas:
-        contagem_tendencia = Counter(ultimas_jogadas)
-        total = len(ultimas_jogadas)
-        
-        st.write("**Distribuição nas últimas jogadas:**")
-        col_casa, col_visit, col_empate = st.columns(3)
-        with col_casa:
-            percent_casa = (contagem_tendencia["🔴"] / total) * 100
-            st.metric("🔴 Casa", f"{percent_casa:.1f}%")
-        with col_visit:
-            percent_visit = (contagem_tendencia["🔵"] / total) * 100
-            st.metric("🔵 Visitante", f"{percent_visit:.1f}%")
-        with col_empate:
-            percent_empate = (contagem_tendencia["🟡"] / total) * 100
-            st.metric("🟡 Empate", f"{percent_empate:.1f}%")
-else:
-    st.info("Registre jogadas para ver as tendências")
+    # Exibir os padrões mais comuns
+    st.write("**Padrões mais frequentes:**")
+    for linha_ref, padroes in list(padroes_por_linha.items())[:3]:
+        st.write(f"- Linha de referência: {' '.join(linha_ref)}")
+        st.write(f"  Padrões detectados: {len(padroes)}")
+        st.write(f"  Sugestões mais comuns: {Counter(p['sugestao'] for p in padroes).most_common(1)[0][0]}")
